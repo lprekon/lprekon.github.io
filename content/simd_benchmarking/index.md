@@ -1,9 +1,9 @@
 +++
 date = '2025-02-12T19:00:59-05:00'
 draft = true
-title = 'Index'
+title = 'Benchmarking Different Vectorization Strategies in Rust'
 +++
-# Benchmarking Different Vectorization Strategies in Rust
+# 
 
 **Outline**
 * What is vectorization/SIMD
@@ -59,8 +59,79 @@ For rest of this post, we’re going to be working in Rust. If you’re not a Ru
 One of the great things about Rust is that the compiler will automatically turn your boring old scalar instructions into shiny awesome vector instructions. Well, actually LLVM does the auto-vectorization, so any compiler build on top of LLVM - Rust, [insert others with links] - will get the same treatment. 
 
 ## The Algorithm We'll Vectorize
-lorem ipsum
-### sliding window method
-lorem ipsum
-### pyramid method
-lorem ipsum
+Ok, let’s talk about the actual algorithm we want to speed up with SIMD operations: we’ll be calculating the value of [B-Splines](https://en.wikipedia.org/wiki/B-spline). If you’ve worked in CAD or digital graphics products, you may have heard the term, and know it as “that tool that lets me draw curvy lines by moving points around, even though the line doesn’t go exactly through the points”. In general, [Splines](https://en.wikipedia.org/wiki/Spline_(mathematics)) are piece-wise polynomial functions known for their ability to trace out arbitrary curves, and B-Splines are a specific way to define and build splines. If you’re unfamiliar with the math behind B-splines, here’s a brief primer, so you can understand the code later
+
+### A Brief Primer on B-Splines
+A B-spline is a recursive piece-wise function defined using three values
+1. A list of numbers called knots which define the intervals considered by the piece-wise function
+2. A list of numbers called control points (or coefficients) which weight the different pieces of the function
+3. A single number called the degree of the spline, which determines how many levels of recursion the function uses and, consequently, how smooth the resulting curve is
+
+Let's look at an example:
+<!-- <img src="generated_images/bspline_degree_0.png" alt="demo" class="img-responsive" max-width/> -->
+![A degree-0 B-spline](generated_images/bspline_degree_0.png)
+
+This is a dirt-simple degree-0 b-spline. The value of the spline at some value `x` is equal to the weighted sum of the constituent "basis functions" at `x` so long as `x` is within the range defined by the knots, and zero everywhere else. In the above example, the weights (or “control points”) are all 1 for simplicity. Let’s take a look at some of the basis functions for this degree-0 spline
+
+![the 1st basis function for a degree-0 B-spline](generated_images/degree_0_basis_0.png)
+![the 2nd basis function for a degree-0 B-spline](generated_images/degree_0_basis_1.png)
+![the 3rd basis function for a degree-0 B-spline](generated_images/degree_0_basis_2.png)
+
+Each degree 0 basis function is simply defined as `1` when `x` is between the `ith` and `i+1th` knot, and 0 everywhere else. Ok, so far, so boring. We’re just looking at some lines. Let’s start 
+
+looking at higher degree B-splines to see how it comes together. Here’s general form of the basis function for degree 1 and higher
+
+![The basis function formula for B-splines degree 1 and higher](generated_images/basis_formula.png)
+
+That looks complicated, but we can break it down:
+1. The `i'th` basis function for some degree `k` b-spline is equal to…
+   1. The weighted combination of…
+      1. The `i'th` basis function of the `k-1` degree b-spline 
+      2. And…
+      3. The `i+1'th` basis function of the `k-1` degree b-spline
+      * (remember that the 0th degree basis functions are just 1 or 0 as defined above, so the recursion will end eventually)
+   2. Where the weights are…
+      1. Based on the “distance” between `x` and…
+         1. The `i'th` knot, for the “left” basis function
+         2. The `i+k'th` knot, for the “right” basis function
+      2. Normalized by the length of the interval between the 
+         1. `i+k'th` and `i'th` knot on the left
+         2. `i+k+1'th` and `i+1'th` knot on the right
+
+That’s a lot of math. Let’s look at in action. Here are the first three basis functions for a degree-1 B-spline
+
+![the 1st basis function for a degree-1 B-spline](generated_images/degree_1_basis_0.png)
+![the 2nd basis function for a degree-1 B-spline](generated_images/degree_1_basis_1.png)
+![the 3rd basis function for a degree-1 B-spline](generated_images/degree_1_basis_2.png)
+
+And for degree-2 basis functions:
+
+![the 1st basis function for a degree-2 B-spline](generated_images/degree_2_basis_0.png)
+![the 2nd basis function for a degree-2 B-spline](generated_images/degree_2_basis_1.png)
+![the 3rd basis function for a degree-2 B-spline](generated_images/degree_2_basis_2.png)
+
+All of these basis functions follow the formula defined above, where `k` equals the “degree” of the b-spline, and `i` is given the value 1, 2, or 3 for the first, second, and third images in each set, respectively.
+
+Let’s move up to a degree-3 b-spline and put all the basis functions together
+
+![A full degree-3 B-spline with control points all set to 1](generated_images/bspline_degree_3_full.png)
+
+The colored lines are each one of our basis functions, and the black line is the full spline. At any point `x`, the value of `spline(x)` is the sum of the values of each basis function `B_i` evaluated at that point `x`. In the above example the control points are all set to 1. Let's see another example with different control points to see how splines are used to approximate different functions
+
+![A full degree-3 B-spline with varying control points ](generated_images/bspline_degree_3_full_with_control_points.png)
+
+Now we're cooking with gas! Here we see a B-spline in all it's glory. By manipulating the control points, we can "tug" the spline curve in one direction or another. 
+
+Through the proper choice of knots, control points, and degree, we can use B-Splines to construct arbitrary curves 
+
+There's a lot more we could say about B-Splines (what happens if we mess with the knots? How do you decide how high the degree should be? How do B-Splines work in 2 or more dimensions?), but that's beyond the scope of this article. For those interested, see: 
+* [Shape Interrogation for Computer Aided Design and Manufacturing, Chapter 1](https://web.mit.edu/hyperbook/Patrikalakis-Maekawa-Cho/node15.html), MIT Hyperbook
+* [Definition of a B-Spline Curve](https://www.cs.unc.edu/~dm/UNC/COMP258/LECTURES/B-spline.pdf), UC Lecture notes
+* [Desmos B-Spline Playground](https://www.desmos.com/calculator/ql6jqgdabs)
+* and of course [B-Spline](https://en.wikipedia.org/wiki/B-spline), Wikipedia
+
+**In conclusion: B-Splines are functions that let us trace arbitrary curves. To determine the value of the spline at some point `x`:**
+1. **evaluate each basis function (which is a recursive function) at `x`**
+2. **multiply by the basis function outputs by their corresponding conrtrol points**
+3. **sum the results**
+
