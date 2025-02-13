@@ -2,3 +2,4 @@ baseURL = 'https://example.org/'
 languageCode = 'en-us'
 title = 'CodeFarming'
 theme = 'ananke'
+markup.goldmark.renderer.unsafe = true
