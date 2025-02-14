@@ -63,69 +63,68 @@ Ok, let’s talk about the actual algorithm we want to speed up with SIMD operat
 
 ### A Brief Primer on B-Splines
 A B-spline is a recursive piece-wise function defined using three values
-1. A list of numbers called knots which define the intervals considered by the piece-wise function
-2. A list of numbers called control points (or coefficients) which weight the different pieces of the function
-3. A single number called the degree of the spline, which determines how many levels of recursion the function uses and, consequently, how smooth the resulting curve is
+1. A list of numbers, called "knots", which define the intervals considered by the piece-wise function
+2. A second list of numbers, called "control points" (or coefficients), which weight the different pieces of the function
+3. A single number called the "degree" of the spline, which determines how many levels of recursion the function uses and, consequently, how smooth the resulting curve is
 
 Let's look at an example:
-<!-- <img src="generated_images/bspline_degree_0.png" alt="demo" class="img-responsive" max-width/> -->
 ![A degree-0 B-spline](generated_images/bspline_degree_0.png)
 
-This is a dirt-simple degree-0 b-spline. The value of the spline at some value `x` is equal to the weighted sum of the constituent "basis functions" at `x` so long as `x` is within the range defined by the knots, and zero everywhere else. In the above example, the weights (or “control points”) are all 1 for simplicity. Let’s take a look at some of the basis functions for this degree-0 spline
+This is a dirt-simple degree-0 b-spline. The value of the spline at some value `x` is equal to the weighted sum of the constituent "basis functions" at `x`, so long as `x` is within the range defined by the knots; the function is zero everywhere else. In the above example, the weights (or “control points”) are all 1 for simplicity. Let’s take a look at some of the basis functions for this degree-0 spline
 
-![the 1st basis function for a degree-0 B-spline](generated_images/degree_0_basis_0.png)
-![the 2nd basis function for a degree-0 B-spline](generated_images/degree_0_basis_1.png)
-![the 3rd basis function for a degree-0 B-spline](generated_images/degree_0_basis_2.png)
+![the 1st basis function for a degree-0 B-spline](generated_images/degree_0/degree_0_basis_0.png)
+![the 2nd basis function for a degree-0 B-spline](generated_images/degree_0/degree_0_basis_1.png)
+![the 3rd basis function for a degree-0 B-spline](generated_images/degree_0/degree_0_basis_2.png)
 
-Each degree 0 basis function is simply defined as `1` when `x` is between the `ith` and `i+1th` knot, and 0 everywhere else. Ok, so far, so boring. We’re just looking at some lines. Let’s start 
-
-looking at higher degree B-splines to see how it comes together. Here’s general form of the basis function for degree 1 and higher
+Each degree 0 basis function is simply defined as `1` when `x` is between the `i'th` and `i+1'th` knot, and 0 everywhere else. Ok, so far, so boring. We’re just looking at some lines. Let’s start looking at higher degree B-splines to see how it comes together. Here’s the general form of the basis function for degree 1 and higher. It looks complicated, but we can break it down
 
 ![The basis function formula for B-splines degree 1 and higher](generated_images/basis_formula.png)
 
-That looks complicated, but we can break it down:
-1. The `i'th` basis function for some degree `k` b-spline is equal to…
+In english:
+1. The `i'th` basis function of some degree `k` is equal to…
    1. The weighted combination of…
-      1. The `i'th` basis function of the `k-1` degree b-spline 
+      1. The `i'th` basis function of degree `k-1`
       2. And…
-      3. The `i+1'th` basis function of the `k-1` degree b-spline
-      * (remember that the 0th degree basis functions are just 1 or 0 as defined above, so the recursion will end eventually)
+      3. The `i+1'th` basis function of degree `k-1`
+      * (remember that the 0th degree basis functions are just 1 or 0 as defined above, so `k=0` is the bottom layer)
    2. Where the weights are…
       1. Based on the “distance” between `x` and…
-         1. The `i'th` knot, for the “left” basis function
-         2. The `i+k'th` knot, for the “right” basis function
+         1. The `i'th` knot, for the “left” lower-degree basis function
+         2. The `i+k'th` knot, for the “right” lower-degree basis function
       2. Normalized by the length of the interval between the 
          1. `i+k'th` and `i'th` knot on the left
-         2. `i+k+1'th` and `i+1'th` knot on the right
+         2. `i+k+1'th` and `i+1'th` knot on the right 
 
-That’s a lot of math. Let’s look at in action. Here are the first three basis functions for a degree-1 B-spline
+That’s a lot of math. Let’s look at in action. Here are three degree-1 basis functions, along with the degree-0 basis functions on which they depend
 
-![the 1st basis function for a degree-1 B-spline](generated_images/degree_1_basis_0.png)
-![the 2nd basis function for a degree-1 B-spline](generated_images/degree_1_basis_1.png)
-![the 3rd basis function for a degree-1 B-spline](generated_images/degree_1_basis_2.png)
+![the 1st basis function for a degree-1 B-spline](generated_images/degree_1/degree_1_basis_0.png)
+![the 2nd basis function for a degree-1 B-spline](generated_images/degree_1/degree_1_basis_1.png)
+![the 3rd basis function for a degree-1 B-spline](generated_images/degree_1/degree_1_basis_2.png)
 
-And for degree-2 basis functions:
+The 0th degree-1 basis function `B_0_1` "blends" the 0th and 1st degree-0 basis functions (`B_0_0` and `B_1_0` respectively) and so is non-zero where either `B_0_0` or `B_1_0` are non-zero, and zero everywhere else. Likewise `B_1_1` blends `B_1_0` and `B_2_0`, and so `B_1_1` is only non-zero over the range either of its dependencies are non-zero. 
 
-![the 1st basis function for a degree-2 B-spline](generated_images/degree_2_basis_0.png)
-![the 2nd basis function for a degree-2 B-spline](generated_images/degree_2_basis_1.png)
-![the 3rd basis function for a degree-2 B-spline](generated_images/degree_2_basis_2.png)
+Now, for degree-2 basis functions: 
 
-All of these basis functions follow the formula defined above, where `k` equals the “degree” of the b-spline, and `i` is given the value 1, 2, or 3 for the first, second, and third images in each set, respectively.
+![the 1st basis function for a degree-2 B-spline](generated_images/degree_2/degree_2_basis_0.png)
+![the 2nd basis function for a degree-2 B-spline](generated_images/degree_2/degree_2_basis_1.png)
+![the 3rd basis function for a degree-2 B-spline](generated_images/degree_2/degree_2_basis_2.png)
+
+Again, each basis function is based on the ones below it. Each function `B_i_2` "blends" the basis functions `B_i_1` and `B_i+1_1`. All of these basis functions follow the formula defined above, where `k` equals the “degree” of the basis function, and `i` is given the value 1, 2, or 3 for the first, second, and third images in each set, respectively. The pattern would continue as we move to higher degrees - 3, 4, 5, and up. 
 
 Let’s move up to a degree-3 b-spline and put all the basis functions together
 
 ![A full degree-3 B-spline with control points all set to 1](generated_images/bspline_degree_3_full.png)
 
-The colored lines are each one of our basis functions, and the black line is the full spline. At any point `x`, the value of `spline(x)` is the sum of the values of each basis function `B_i` evaluated at that point `x`. In the above example the control points are all set to 1. Let's see another example with different control points to see how splines are used to approximate different functions
+The colored lines are each one of our basis functions, and the black line is the full B-spline. At any point `x`, the value of `spline(x)` is the sum of the values of each basis function `B_i` evaluated at that point `x`. In the above example the control points are all set to 1. Let's see another example with different control points to see how they affect things
 
 ![A full degree-3 B-spline with varying control points ](generated_images/bspline_degree_3_full_with_control_points.png)
 
-Now we're cooking with gas! Here we see a B-spline in all it's glory. By manipulating the control points, we can "tug" the spline curve in one direction or another. 
+Now we're cooking with gas! Here we see a B-spline in all it's glory. By manipulating the control points, we can "tug" portions of the spline curve in one direction or another. 
 
-Through the proper choice of knots, control points, and degree, we can use B-Splines to construct arbitrary curves 
+Through the proper choice of knots, control points, and degree, we can use B-Splines to construct arbitrary curves, and thus approximate any function we want
 
-There's a lot more we could say about B-Splines (what happens if we mess with the knots? How do you decide how high the degree should be? How do B-Splines work in 2 or more dimensions?), but that's beyond the scope of this article. For those interested, see: 
-* [Shape Interrogation for Computer Aided Design and Manufacturing, Chapter 1](https://web.mit.edu/hyperbook/Patrikalakis-Maekawa-Cho/node15.html), MIT Hyperbook
+There's a lot more we could say about B-Splines (what happens if we mess with the knots? How what difference does increasing the degree make? How do B-Splines work in 2 or more dimensions?), but that's beyond the scope of this post. For those interested, see: 
+* [Shape Interrogation for Computer Aided Design and Manufacturing, Chapter 1.4](https://web.mit.edu/hyperbook/Patrikalakis-Maekawa-Cho/node15.html), MIT Hyperbook
 * [Definition of a B-Spline Curve](https://www.cs.unc.edu/~dm/UNC/COMP258/LECTURES/B-spline.pdf), UC Lecture notes
 * [Desmos B-Spline Playground](https://www.desmos.com/calculator/ql6jqgdabs)
 * and of course [B-Spline](https://en.wikipedia.org/wiki/B-spline), Wikipedia
@@ -135,3 +134,187 @@ There's a lot more we could say about B-Splines (what happens if we mess with th
 2. **multiply by the basis function outputs by their corresponding conrtrol points**
 3. **sum the results**
 
+Now that that's out of the way, let's take a look at the code we'll be optimizing
+
+### Evaluating a B-Spline with Rust
+
+Let's begin with a straight forward implementation of our spline math. This code is intentionally sub-optimal, so we'll have a baseline for our benchmarking
+
+```rust
+/// recursivly compute the b-spline basis function for the given index `i`, degree `k`, and knot vector, at the given parameter `x`
+fn basis_activation(i: usize, k: usize, x: f64, knots: &[f64]) -> f64 {
+    if k == 0 {
+        if knots[i] <= x && x < knots[i + 1] {
+            return 1.0;
+        } else {
+            return 0.0;
+        }
+    }
+    let left_coefficient = (x - knots[i]) / (knots[i + k] - knots[i]);
+    let left_recursion = basis_activation(i, k - 1, x, knots);
+
+    let right_coefficient = (knots[i + k + 1] - x) / (knots[i + k + 1] - knots[i + 1]);
+    let right_recursion = basis_activation(i + 1, k - 1, x, knots);
+
+    let result = left_coefficient * left_recursion + right_coefficient * right_recursion;
+    return result;
+}
+
+/// Calculate the value of the B-spline at the given parameter `x`
+fn b_spline(x: f64, control_points: &[f64], knots: &[f64], degree: usize) -> f64 {
+    let mut result = 0.0;
+    for i in 0..control_points.len() {
+        result += control_points[i] * basis_activation(i, degree, x, knots);
+    }
+    return result;
+}
+
+```
+
+We'll be benchmarking this code with Rust's built-in benchmarking tool [`cargo bench`](https://doc.rust-lang.org/cargo/commands/cargo-bench.html). Here's a quick look at our benchmarking code
+
+```rust
+#![feature(test)]
+extern crate test;
+use test::Bencher;
+
+use rust_simd_becnhmarking::b_spline;
+
+const DEGREE: usize = 4;
+const CONTROL_POINTS: [f64; 16] = [1.0; 16];
+const KNOTS: [f64; 21] = [
+    0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0,
+    17.0, 18.0, 19.0, 20.0,
+];
+
+const INPUT_SIZE: usize = 100;
+
+#[bench]
+/// benchmark evaluating a degree-3 B-spline with 20 knots and 16 basis functions, over 100 different input values
+fn bench_recursive_method(b: &mut Bencher) {
+    let input_values: Vec<f64> = (0..INPUT_SIZE).map(|x| x as f64 / 10.0).collect(); // 100 input values, ranging from 0.0 to 9.9
+    b.iter(|| {
+        for x in input_values.iter() {
+            let _ = b_spline(*x, &CONTROL_POINTS, &KNOTS, DEGREE);
+        }
+    });
+}
+```
+
+We're making the spline much larger than the examples we went over above - degree 4 with 16 basis functions and 100 different `x` values. We want the calculations to take long enough that the benchmarker can get an accurate read - even when we speed everything up later. We also need the number of knots, basis functions, and input values to be large enough that we have headroom to optimize - this will make more sense as we explore different vectorization strategies. For now, let's see how long this benchmark takes
+
+```zsh
+>$ cargo bench -q
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 1 test
+test bench_recursive_method ... bench:     132,703.54 ns/iter (+/- 1,991.62)
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 1 measured; 0 filtered out; finished in 3.59s
+```
+
+Looks like evaluating all 100 inputs takes about 132k nanoseconds, or roughly 0.132 milliseconds. Cool, we have a baseline. Now we can start optimizing
+
+From this point on, as we explore different vectorization strategies, there are lots of little details that a competant programmer might overlook at first, but which can have a large impact on performance - ineffecient memory allocation, redundant looping, etc. I went through rigamaroll of write-profile-optimize when I first wrote these operations as part of my [KAN Library](https://crates.io/crates/fekan). I will quietly include the results of all those lessons-learned in the code I show going forward, because I want each iteration of the algorithm to be the best version of itself it can be.
+
+## Optimization #1: From Recursion to Looping
+
+To understand our first optimization, let's take a step back and consider how the value of `B_i_k`, the value of the `i'th` basis function of degree `k`, depends on the values of the basis functions of degree `k-1`
+
+![A pyramid showing the dependency chain for the 0th basis function at degree 3](generated_images/single_basis_pyramid.png)
+
+One thing to note is that in each layer, each basis function is depended on by the one above it, and the one above-and-to-the-left of it. Our actual B-splines depend on more than one top-level basis function, however, so let's look at a version of this pyramid with multiple basis functions in the top layer
+
+![A pyramid showing the dependency chain for the 0th through 3rd basis function at degree 3](generated_images/multiple_basis_pyramid.png)
+
+A basis function is never depended **on** by *any* basis function to its right, and a basis function never **depends** on *any* basis function to its left. This insight will let us rewrite our spline function in loop that reuses previously calculated values instead of throwing them away.
+
+```rust
+pub fn b_spline_loop_over_basis(
+    x: f64,
+    control_points: &[f64],
+    knots: &[f64],
+    degree: usize,
+) -> f64 {
+    let mut basis_activations = vec![0.0; knots.len() - 1];
+    // fill the basis activations vec with the valued of the degree-0 basis functions
+    for i in 0..knots.len() - 1 {
+        if knots[i] <= x && x < knots[i + 1] {
+            basis_activations[i] = 1.0;
+        } else {
+            basis_activations[i] = 0.0;
+        }
+    }
+
+    for k in 1..=degree {
+        for i in 0..knots.len() - k - 1 {
+            let left_coefficient = (x - knots[i]) / (knots[i + k] - knots[i]);
+            let left_recursion = basis_activations[i];
+
+            let right_coefficient = (knots[i + k + 1] - x) / (knots[i + k + 1] - knots[i + 1]);
+            let right_recursion = basis_activations[i + 1];
+
+            basis_activations[i] =
+                left_coefficient * left_recursion + right_coefficient * right_recursion;
+        }
+    }
+
+    let mut result = 0.0;
+    for i in 0..control_points.len() {
+        result += control_points[i] * basis_activations[i];
+    }
+    return result;
+}
+```
+
+Here's our first optimized spline calculator. Now that we're not recursing, there's no need for a separate basis function - we do all our calculations in this one spline function. In order to calculate the final value of the spline at point `x`, we need the value of each of our top level basis functions. To start, in that first loop, we calculate the value of each degree-0 basis functions and store the results in a vector. 
+
+![degree-3 pyramid of basis functions with all but the bottom layer greyed out](generated_images/basis_pyramid/multiple_basis_pyramid_bot_layer_filled.png)
+
+The second loop is where the magic happens. At each layer `k`, starting at `1` and moving up to our full degree, we walk our vector of basis functions and calculate each in turn, overwriting the value of the lower-degree basis function that was in its spot. This works because of the direction of the arrows in the dependency pyramid we looked at a second ago. For example, when `k=1` and `i=0`, we're calculating basis function `B_0_1`, which depends on `B_0_0` and `B_1_0`, which at that point live in our vector at the `0th` and `1st` position, respectively. We read those values from the vector, and use them to calculate `B_0_1`
+
+![degree-3 pyramid of basis functions with all but the bottom layer greyed out. There's a red box around the first basis function in the second layer](generated_images/basis_pyramid/calculating_B_0_3.png)
+
+Then we write `B_0_1` to the `0th` position in our vector, overwritting `B_0_0`, which is no longer needed. After that we move on to calculating `B_1_1`
+
+![degree-3 pyramid of basis functions. The first basis function in the second layer is filled in, as are the second-through-last basis functions in the bottom layer. The rest are greyed out. There's a red box around the second basis function in the second layer](generated_images/basis_pyramid/calculating_B_1_3.png)
+
+Which overwrites `B_1_0`, and so on
+
+![degree-3 pyramid of basis functions. The first and second basis function in the second layer are filled in, as are the third-through-last basis functions in the bottom layer. The rest are greyed out. There's a red box around the third basis function in the second layer](generated_images/basis_pyramid/calculating_B_2_3.png)
+
+![degree-3 pyramid of basis functions. The first-through-third basis function in the second layer are filled in, as are the fourth-through-last basis functions in the bottom layer. The rest are greyed out. There's a red box around the fourth basis function in the second layer](generated_images/basis_pyramid/calculating_B_3_3.png)
+
+Each iteration of that second loop fills in one layer of our pyramid. Once we finish, the first several elements of our `basis_activations` vector are the outputs of our top-level basis functions; the remaining values are leftover basis outputs from lower levels that were never overwritten, and can be safely discarded
+
+The loop at the end should look familiar - we're just summing each basis function multiplied by its control point, as before.
+
+Now, let's see how fast this method is
+
+```zsh
+>$ cargo bench -q
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 2 tests
+test bench_recursive_method   ... bench:     124,945.30 ns/iter (+/- 2,647.63)
+test bench_simple_loop_method ... bench:      11,991.19 ns/iter (+/- 213.98)
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 2 measured; 0 filtered out; finished in 0.84s
+```
+(Ignore the changes in the time for the recursive method benchmark - the benchmarker is imperfect, and there will always be some minor variation between runs)
+
+Looks like we got a full 10x speedup just by moving from recursion to looping! That speedup is coming, in varying degrees from three places:
+1. Reduced overhead. Besides the work done within a function, there's a certain amount of work required simply to call a functiona and return from it. Our recursive method had a lot of function calls - now we have only one
+2. Reusing calculated basis values. Go back and look at our pyramid of basis functions; each basis function `B_i_k` is depended on by two other basis functions - `B_i-1_k+1` and `B_i_k+1`. In the recursive method, we'd calculate `B_i_k` once while calculating its first dependent, and again when calculating its second dependent. Now that we're storing the results of each basis function calculation in our vector, we only need to calculate each one once
+3. **Auto-vectorization**. In recursive mode, the compiler was limited in what it could assume about our calculations and how they would play out, so it wrote assembly to do exactly what we described and nothing more. Now that we're working a loop, the compiler is able to recognize that we're walking a vector and performing the same operation at each step, and do things smarter: the compiler is generating assembly with SIMD operations. While our Rust code says "for each index 0..n, do some operation", the assembly generated by the compiler now says "for every chunk of indexes [0..i]...[n-i..n], do some operation". We're getting vectorization for free, just by writing code that's easier for the compiler to understand!
+
+
+## Optimization #2: Rust's Portable SIMD Crate

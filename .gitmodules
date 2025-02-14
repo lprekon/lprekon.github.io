@@ -1,3 +1,6 @@
 [submodule "themes/ananke"]
 	path = themes/ananke
 	url = https://github.com/theNewDynamic/gohugo-theme-ananke.git
+[submodule "content/simd_benchmarking/spline_simd_benchmarking"]
+	path = content/simd_benchmarking/spline_simd_benchmarking
+	url = git@github.com:lprekon/spline_simd_benchmarking.git
