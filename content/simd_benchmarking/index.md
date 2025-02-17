@@ -180,22 +180,28 @@ use test::Bencher;
 
 use rust_simd_becnhmarking::b_spline;
 
-const DEGREE: usize = 4;
-const CONTROL_POINTS: [f64; 16] = [1.0; 16];
-const KNOTS: [f64; 21] = [
-    0.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 11.0, 12.0, 13.0, 14.0, 15.0, 16.0,
-    17.0, 18.0, 19.0, 20.0,
-];
-
-const INPUT_SIZE: usize = 100;
+// define the parameters for the B-spline we'll use in each benchmark
+fn get_test_parameters() -> (usize, Vec<f64>, Vec<f64>, Vec<f64>) {
+    let spline_size = 100;
+    let input_size = 100;
+    let degree = 4;
+    let control_points = vec![1.0; spline_size];
+    let knots = (0..spline_size + degree + 1)
+        .map(|x| x as f64 / (spline_size + degree + 1) as f64)
+        .collect::<Vec<_>>();
+    let inputs = (0..input_size)
+        .map(|x| x as f64 / input_size as f64)
+        .collect::<Vec<_>>();
+    (degree, control_points, knots, inputs)
+}
 
 #[bench]
-/// benchmark evaluating a degree-3 B-spline with 20 knots and 16 basis functions, over 100 different input values
+// benchmark evaluating a degree-3 B-spline with 20 knots and 16 basis functions, over 100 different input values
 fn bench_recursive_method(b: &mut Bencher) {
-    let input_values: Vec<f64> = (0..INPUT_SIZE).map(|x| x as f64 / 10.0).collect(); // 100 input values, ranging from 0.0 to 9.9
+    let (degree, control_points, knots, inputs) = get_test_parameters();
     b.iter(|| {
-        for x in input_values.iter() {
-            let _ = b_spline(*x, &CONTROL_POINTS, &KNOTS, DEGREE);
+        for x in inputs.iter() {
+            let _ = b_spline(*x, &control_points, &knots, degree);
         }
     });
 }
@@ -206,18 +212,23 @@ We're making the spline much larger than the examples we went over above - degre
 ```zsh
 >$ cargo bench -q
 
+running 4 tests
+iiii
+test result: ok. 0 passed; 0 failed; 4 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
 running 0 tests
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
 
 running 1 test
-test bench_recursive_method ... bench:     132,703.54 ns/iter (+/- 1,991.62)
+test bench_recursive_method ... bench:     706,262.10 ns/iter (+/- 81,587.11)
 
-test result: ok. 0 passed; 0 failed; 0 ignored; 1 measured; 0 filtered out; finished in 3.59s
+test result: ok. 0 passed; 0 failed; 0 ignored; 1 measured; 0 filtered out; finished in 0.22s
 ```
 
-Looks like evaluating all 100 inputs takes about 132k nanoseconds, or roughly 0.132 milliseconds. Cool, we have a baseline. Now we can start optimizing
+Looks like evaluating all 100 inputs takes about 700k nanoseconds, or roughly 0.7 milliseconds. Cool, we have a baseline. Now we can start optimizing
 
 From this point on, as we explore different vectorization strategies, there are lots of little details that a competant programmer might overlook at first, but which can have a large impact on performance - ineffecient memory allocation, redundant looping, etc. I went through rigamaroll of write-profile-optimize when I first wrote these operations as part of my [KAN Library](https://crates.io/crates/fekan). I will quietly include the results of all those lessons-learned in the code I show going forward, because I want each iteration of the algorithm to be the best version of itself it can be.
 
@@ -231,51 +242,59 @@ One thing to note is that in each layer, each basis function is depended on by t
 
 ![A pyramid showing the dependency chain for the 0th through 3rd basis function at degree 3](generated_images/multiple_basis_pyramid.png)
 
-A basis function is never depended **on** by *any* basis function to its right, and a basis function never **depends** on *any* basis function to its left. This insight will let us rewrite our spline function in loop that reuses previously calculated values instead of throwing them away.
+A basis function is never depended **on** by *any* basis function to its right, and a basis function never **depends** on *any* basis function to its left. With that, we can rewrite our spline function in a loop that reuses previously calculated values instead of throwing them away.
 
 ```rust
+/// Calculate the value of the B-spline at the given parameter `x` by looping over the basis functions
 pub fn b_spline_loop_over_basis(
-    x: f64,
+    inputs: &[f64],
     control_points: &[f64],
     knots: &[f64],
     degree: usize,
-) -> f64 {
+) -> Vec<f64> {
+    let mut outputs = Vec::with_capacity(inputs.len());
     let mut basis_activations = vec![0.0; knots.len() - 1];
     // fill the basis activations vec with the valued of the degree-0 basis functions
-    for i in 0..knots.len() - 1 {
-        if knots[i] <= x && x < knots[i + 1] {
-            basis_activations[i] = 1.0;
-        } else {
-            basis_activations[i] = 0.0;
+    for x in inputs{
+        let x = *x; 
+        for i in 0..knots.len() - 1 {
+            if knots[i] <= x && x < knots[i + 1] {
+                basis_activations[i] = 1.0;
+            } else {
+                basis_activations[i] = 0.0;
+            }
         }
-    }
 
-    for k in 1..=degree {
-        for i in 0..knots.len() - k - 1 {
-            let left_coefficient = (x - knots[i]) / (knots[i + k] - knots[i]);
-            let left_recursion = basis_activations[i];
+        for k in 1..=degree {
+            for i in 0..knots.len() - k - 1 {
+                let left_coefficient = (x - knots[i]) / (knots[i + k] - knots[i]);
+                let left_recursion = basis_activations[i];
 
-            let right_coefficient = (knots[i + k + 1] - x) / (knots[i + k + 1] - knots[i + 1]);
-            let right_recursion = basis_activations[i + 1];
+                let right_coefficient = (knots[i + k + 1] - x) / (knots[i + k + 1] - knots[i + 1]);
+                let right_recursion = basis_activations[i + 1];
 
-            basis_activations[i] =
-                left_coefficient * left_recursion + right_coefficient * right_recursion;
+                basis_activations[i] =
+                    left_coefficient * left_recursion + right_coefficient * right_recursion;
+            }
         }
-    }
 
-    let mut result = 0.0;
-    for i in 0..control_points.len() {
-        result += control_points[i] * basis_activations[i];
+        let mut result = 0.0;
+        for i in 0..control_points.len() {
+            result += control_points[i] * basis_activations[i];
+        }
+        outputs.push(result);
     }
-    return result;
+    return outputs;
 }
 ```
 
-Here's our first optimized spline calculator. Now that we're not recursing, there's no need for a separate basis function - we do all our calculations in this one spline function. In order to calculate the final value of the spline at point `x`, we need the value of each of our top level basis functions. To start, in that first loop, we calculate the value of each degree-0 basis functions and store the results in a vector. 
+Here's our first optimized spline calculator. Now that we're not recursing, there's no need for a separate basis function - we do all our calculations in this one spline function. We're also taking in a whole batch of input values to be processed at once, instead of only taking one at a time, for efficieny reasons that will be explained in a moment.
+
+In order to calculate the final value of the spline at point `x`, we need the value of each of our top level basis functions. To start, in that `0..knots.len() - 1` loop, we calculate the value of each degree-0 basis functions and store the results in a vector. 
 
 ![degree-3 pyramid of basis functions with all but the bottom layer greyed out](generated_images/basis_pyramid/multiple_basis_pyramid_bot_layer_filled.png)
 
-The second loop is where the magic happens. At each layer `k`, starting at `1` and moving up to our full degree, we walk our vector of basis functions and calculate each in turn, overwriting the value of the lower-degree basis function that was in its spot. This works because of the direction of the arrows in the dependency pyramid we looked at a second ago. For example, when `k=1` and `i=0`, we're calculating basis function `B_0_1`, which depends on `B_0_0` and `B_1_0`, which at that point live in our vector at the `0th` and `1st` position, respectively. We read those values from the vector, and use them to calculate `B_0_1`
+Next, the `1..=degree` loop is where the magic happens. At each layer `k`, starting at `1` and moving up to our full degree, we walk our vector of basis functions and calculate each in turn, overwriting the value of the lower-degree basis function that was in its spot. This works because of the direction of the arrows in the dependency pyramid. For example, when `k=1` and `i=0`, we're calculating basis function `B_0_1`, which depends on `B_0_0` and `B_1_0`, which at that point live in our vector at the `0th` and `1st` position, respectively. We read those values from the vector, and use them to calculate `B_0_1`
 
 ![degree-3 pyramid of basis functions with all but the bottom layer greyed out. There's a red box around the first basis function in the second layer](generated_images/basis_pyramid/calculating_B_0_3.png)
 
@@ -291,12 +310,17 @@ Which overwrites `B_1_0`, and so on
 
 Each iteration of that second loop fills in one layer of our pyramid. Once we finish, the first several elements of our `basis_activations` vector are the outputs of our top-level basis functions; the remaining values are leftover basis outputs from lower levels that were never overwritten, and can be safely discarded
 
-The loop at the end should look familiar - we're just summing each basis function multiplied by its control point, as before.
+The `0..control_points.len()` loop at the end should look familiar - we're just summing each basis function multiplied by its control point, as before.
 
 Now, let's see how fast this method is
 
 ```zsh
 >$ cargo bench -q
+
+running 4 tests
+iiii
+test result: ok. 0 passed; 0 failed; 4 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
 
 running 0 tests
 
@@ -304,17 +328,129 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
 
 running 2 tests
-test bench_recursive_method   ... bench:     124,945.30 ns/iter (+/- 2,647.63)
-test bench_simple_loop_method ... bench:      11,991.19 ns/iter (+/- 213.98)
+test bench_recursive_method   ... bench:     703,483.80 ns/iter (+/- 6,780.53)
+test bench_simple_loop_method ... bench:      55,801.39 ns/iter (+/- 499.37)
 
-test result: ok. 0 passed; 0 failed; 0 ignored; 2 measured; 0 filtered out; finished in 0.84s
+test result: ok. 0 passed; 0 failed; 0 ignored; 2 measured; 0 filtered out; finished in 4.94s
 ```
 (Ignore the changes in the time for the recursive method benchmark - the benchmarker is imperfect, and there will always be some minor variation between runs)
 
-Looks like we got a full 10x speedup just by moving from recursion to looping! That speedup is coming, in varying degrees from three places:
+This method takes about 55k nanoseconds. Looks like we got over a 10x speedup just by moving from recursion to looping! That speedup is coming, in varying degrees from three places:
 1. Reduced overhead. Besides the work done within a function, there's a certain amount of work required simply to call a functiona and return from it. Our recursive method had a lot of function calls - now we have only one
 2. Reusing calculated basis values. Go back and look at our pyramid of basis functions; each basis function `B_i_k` is depended on by two other basis functions - `B_i-1_k+1` and `B_i_k+1`. In the recursive method, we'd calculate `B_i_k` once while calculating its first dependent, and again when calculating its second dependent. Now that we're storing the results of each basis function calculation in our vector, we only need to calculate each one once
-3. **Auto-vectorization**. In recursive mode, the compiler was limited in what it could assume about our calculations and how they would play out, so it wrote assembly to do exactly what we described and nothing more. Now that we're working a loop, the compiler is able to recognize that we're walking a vector and performing the same operation at each step, and do things smarter: the compiler is generating assembly with SIMD operations. While our Rust code says "for each index 0..n, do some operation", the assembly generated by the compiler now says "for every chunk of indexes [0..i]...[n-i..n], do some operation". We're getting vectorization for free, just by writing code that's easier for the compiler to understand!
+3. **Auto-vectorization**. In recursive mode, the compiler was limited in what it could assume about our code, so it was forced to be conservative in how it optimizied and wrote assembly to do exactly what we described and nothing more - read a few values, multiply and add them together, and give a single value back. Now that we're working a loop, the compiler is able to recognize that we're walking a vector and performing the same operation at each step, and do things smarter: the compiler is generating assembly with SIMD operations. While our Rust code says "for each index 0..n, read a few values, multiply and add them together, and store the single result", the assembly generated by the compiler now says "for every chunk of indexes [0..i]...[n-i..n], read several chunks of values, multiply and add the chunks together, and store the several results all at once". We're getting vectorization for free, just by writing code that's easier for the compiler to understand!
 
 
 ## Optimization #2: Rust's Portable SIMD Crate
+
+Now we'll start introducing SIMD operations using Rust's [portable SIMD module](https://doc.rust-lang.org/std/simd/index.html). 
+
+Note for those following along with their own code at home: using `std::simd` requires addings the `#![feature(portable_simd)]` flag at the top of our library and compiling with the nightly toolchain, instead of the default stable release. You can install the `nightly` toolchain using [rustup] (https://www.rust-lang.org/tools/install) with `rustup toolchain install nightly`, and set it as the default toolchain for your project by calling `rustup override set nightly` from within your project directory
+
+Below is our B-spline calculation function using SIMD operations. It calculates everything the same way as our looping method, but uses explicit SIMD calls to operate on multiple elements at the same time
+
+```rust
+const SIMD_WIDTH: usize = 8;
+
+pub fn b_spline_portable_simd(
+    inputs: &[f64],
+    control_points: &[f64],
+    knots: &[f64],
+    degree: usize,
+) -> Vec<f64> {
+    use std::simd::prelude::*;
+    let mut outputs = Vec::with_capacity(inputs.len());
+    let mut basis_activations = vec![0.0; knots.len() - 1];
+
+    for x in inputs {
+        let x_splat: Simd<f64, SIMD_WIDTH> = Simd::splat(*x);
+        // fill the basis activations vec with the value of the degree-0 basis functions
+        let mut i = 0;
+        while i + SIMD_WIDTH < knots.len() - 1 {
+            let knots_i_vec: Simd<f64, SIMD_WIDTH> = Simd::from_slice(&knots[i..]);
+            let knots_i_plus_1_vec: Simd<f64, SIMD_WIDTH> = Simd::from_slice(&knots[i + 1..]);
+
+            let left_mask: Mask<i64, SIMD_WIDTH> = knots_i_vec.simd_le(x_splat); // create a bitvector representing whether knots[i] <= x
+            let right_mask: Mask<i64, SIMD_WIDTH> = x_splat.simd_lt(knots_i_plus_1_vec); // create a bitvector representing whether x < knots[i + 1]
+            let full_mask: Mask<i64, SIMD_WIDTH> = left_mask & right_mask; // combine the two masks
+            let activation_vec: Simd<f64, SIMD_WIDTH> =
+                full_mask.select(Simd::splat(1.0), Simd::splat(0.0)); // create a vector with 1 in each position j where knots[i + j] <= x < knots[i + j + 1] and zeros elsewhere
+            activation_vec.copy_to_slice(&mut basis_activations[i..]); // write the activations back to our basis_activations vector
+
+            i += SIMD_WIDTH; // increment i by SIMD_WIDTH, to advance to the next chunk
+        }
+        // since knots.len() - 1 is not guaranteed to be a multiple of SIMD_WIDTH, we need to handle the remaining elements one by one
+        while i < knots.len() - 1 {
+            if knots[i] <= *x && *x < knots[i + 1] {
+                basis_activations[i] = 1.0;
+            } else {
+                basis_activations[i] = 0.0;
+            }
+            i += 1;
+        }
+
+        // now to compute the higher degree basis functions
+        for k in 1..=degree {
+            let mut i = 0;
+            while i + SIMD_WIDTH < knots.len() - k - 1 {
+                let knots_i_vec: Simd<f64, SIMD_WIDTH> = Simd::from_slice(&knots[i..]);
+                let knots_i_plus_k_vec: Simd<f64, SIMD_WIDTH> = Simd::from_slice(&knots[i + k..]);
+                let knots_i_plus_1_vec: Simd<f64, SIMD_WIDTH> = Simd::from_slice(&knots[i + 1..]);
+                let knots_i_plus_k_plus_1_vec: Simd<f64, SIMD_WIDTH> =
+                    Simd::from_slice(&knots[i + k + 1..]);
+
+                // grab the value for and calculate the coefficient for the left term of the recursion, doing a SIMD_WIDTH chunk at a time
+                let left_coefficient_vec =
+                    (x_splat - knots_i_vec) / (knots_i_plus_k_vec - knots_i_vec);
+                let left_recursion_vec: Simd<f64, SIMD_WIDTH> =
+                    Simd::from_slice(&basis_activations[i..]);
+
+                // grab the value for and calculate the coefficient for the right term of the recursion, doing a SIMD_WIDTH chunk at a time
+                let right_coefficient = (knots_i_plus_k_plus_1_vec - x_splat)
+                    / (knots_i_plus_k_plus_1_vec - knots_i_plus_1_vec);
+                let right_recursion_vec: Simd<f64, SIMD_WIDTH> =
+                    Simd::from_slice(&basis_activations[i + 1..]);
+
+                let new_basis_activations_vec = left_coefficient_vec * left_recursion_vec
+                    + right_coefficient * right_recursion_vec;
+                new_basis_activations_vec.copy_to_slice(&mut basis_activations[i..]);
+
+                i += SIMD_WIDTH;
+            }
+            // again, since knots.len() - k - 1 is not guaranteed to be a multiple of SIMD_WIDTH, we need to handle the remaining elements one by one
+            while i < knots.len() - k - 1 {
+                let left_coefficient = (x - knots[i]) / (knots[i + k] - knots[i]);
+                let left_recursion = basis_activations[i];
+
+                let right_coefficient = (knots[i + k + 1] - x) / (knots[i + k + 1] - knots[i + 1]);
+                let right_recursion = basis_activations[i + 1];
+
+                basis_activations[i] =
+                    left_coefficient * left_recursion + right_coefficient * right_recursion;
+                i += 1;
+            }
+        }
+
+        // now to compute the final result, in chunks of SIMD_WIDTH
+        let mut i = 0;
+        let mut result = 0.0;
+        while i + SIMD_WIDTH < control_points.len() {
+            let control_points_vec: Simd<f64, SIMD_WIDTH> = Simd::from_slice(&control_points[i..]);
+            let basis_activations_vec: Simd<f64, SIMD_WIDTH> =
+                Simd::from_slice(&basis_activations[i..]);
+            result += (control_points_vec * basis_activations_vec).reduce_sum();
+            i += SIMD_WIDTH;
+        }
+        // handle the remaining elements one by one
+        while i < control_points.len() {
+            result += control_points[i] * basis_activations[i];
+            i += 1;
+        }
+        outputs.push(result);
+    }
+
+    return outputs;
+}
+```
+
+We've gone from a little over 30 lines, to a solid 100 lines of code! 
