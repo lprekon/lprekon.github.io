@@ -559,3 +559,372 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 3 measured; 0 filtered out; fini
 ```
 
 We got... no speedup? Not only that, it's actually a little bit **slower**. This is quite counter-intuitive, and deserves additional investigation. Let's go through some reasons we might see this performance non-change, and try and rule out as many as we can
+
+## SIMD Slowdown Hypothesis 1: Cold Code
+
+First things first - are we actually *using* the SIMD loops enough for the faster calculations to matter? We expect the SIMD-using `1..=degree` loop to be "hot", meaning we spend a significant chunk of runtime there, and thus speeding up the loop should speed up the overall program. But, maybe those loops *are* running faster, but they're actually "cold" - they represent a small fraction of our overall runtime, so we don't notice any speed ups. Let's really crank the size of the calculations we're benchmarking and see if that reveals a greater difference between the version compiled for a generic CPU, and the version compiled for a Sapphire Rapids CPU with AVX-512 operations
+
+```rust
+// define the parameters for the B-spline we'll use in each benchmark
+fn get_test_parameters() -> (usize, Vec<f64>, Vec<f64>, Vec<f64>) {
+    let spline_size = 1000; // increased from 100 to 1000
+    let input_size = 100;
+    let degree = 4;
+    let control_points = vec![1.0; spline_size];
+    let knots = (0..spline_size + degree + 1)
+        .map(|x| x as f64 / (spline_size + degree + 1) as f64)
+        .collect::<Vec<_>>();
+    let inputs = (0..input_size)
+        .map(|x| x as f64 / input_size as f64)
+        .collect::<Vec<_>>();
+    (degree, control_points, knots, inputs)
+}
+```
+
+We increased the `spline_size` value - which controls the number of basis functions - from 100 to 1000. Let's see if 10x-ing the time we spend calculating basis functions reveals a performance difference. First, the generic version, as a baseline:
+```zsh
+cargo bench -q
+
+running 4 tests
+iiii
+test result: ok. 0 passed; 0 failed; 4 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 3 tests
+test bench_portable_simd_method ... bench:     476,557.90 ns/iter (+/- 17,461.56)
+test bench_recursive_method     ... bench:   7,652,735.90 ns/iter (+/- 691,527.68)
+test bench_simple_loop_method   ... bench:     549,506.40 ns/iter (+/- 9,020.09)
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 3 measured; 0 filtered out; finished in 2.64s
+```
+
+And now, including AVX-512 operations:
+
+```zsh
+RUSTFLAGS="-Ctarget-cpu=sapphirerapids" cargo bench -q
+
+running 4 tests
+iiii
+test result: ok. 0 passed; 0 failed; 4 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+
+running 3 tests
+test bench_portable_simd_method ... bench:     470,703.35 ns/iter (+/- 8,116.68)
+test bench_recursive_method     ... bench:   7,819,541.70 ns/iter (+/- 497,504.42)
+test bench_simple_loop_method   ... bench:     551,491.70 ns/iter (+/- 10,054.52)
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 3 measured; 0 filtered out; finished in 2.83s
+```
+
+From **477k +/- 17k** to **471k +/- 8k**. There's a *bit* of a difference, but within the margin of error. Certainly not the 4x speed increase we were expecting. 
+
+**Conclusion: The dissapointing performance is not caused by cold SIMD loops**
+
+## SIMD Slowdown Hypothesis 2: Dastardly Downclocking
+
+One interesting fact I was surprised to learn when I started SIMD programming: CPUs will [reduce their clockspeed](https://en.wikipedia.org/wiki/Advanced_Vector_Extensions#Downclocking) [for programs](https://blog.cloudflare.com/on-the-dangers-of-intels-frequency-scaling/) with AVX instructions. This makes sense, in hindsight: AVX operations work on more data and so consume more power, which means [more heat](). It makes sense that the CPU would slow down to [avoid overheating](https://www.anandtech.com/show/5763/undervolting-and-overclocking-on-ivy-bridge). 
+
+Now, this probably isn't the problem: downclocking will most hurt programs that spend only a little bit of time doing AVX-512 operations and a lot of time doing regular scalar operations, which would take the hit from the slower clock speed. But, we just showed that our problem isn't too little time spent in the SIMD loop. Nonetheless, let's rule try and rule downclocking out.
+
+Turns out this hypothesis is really easy to test. We'll use a linux built-in tool [perf](https://man7.org/linux/man-pages/man1/perf.1.html) - specifically [perf-stat](https://man7.org/linux/man-pages/man1/perf-stat.1.html) - to check the clockspeed for our two different versions. We don't want the benchmarks for our recursive or non-SIMD-loop methods to muddy our results, so we'll include the `--benches portable` flag to only run benchmarks with "portable" in the name
+
+(`cargo bench` will automatically rebuild our code if `RUSTFLAGS` changes, so we need to manually build it before running `perf`, so we only measure the benchmark and not compiling the code)
+
+The generic version:
+```zsh
+$> cargo build --profile=bench
+    Finished `bench` profile [optimized + debuginfo] target(s) in 0.00s
+$> perf stat -e cycles,cpu-clock cargo bench --benches portable -q
+
+...
+
+ Performance counter stats for 'cargo bench --benches portable -q':
+
+       16887085721      cycles                           #    3.545 GHz                    
+           4764.22 msec cpu-clock                        #    0.977 CPUs utilized          
+
+       4.878193211 seconds time elapsed
+
+       4.802481000 seconds user
+       0.074147000 seconds sys
+
+```
+Looks like the average clock speed was 3.545 GHz. Does that decrease when we introduce AVX-512 operations:
+```zsh
+$> RUSTFLAGS="-Ctarget-cpu=sapphirerapids" cargo build --profile=bench
+    Finished `bench` profile [optimized + debuginfo] target(s) in 0.00s
+$> RUSTFLAGS="-Ctarget-cpu=sapphirerapids" perf stat -e cycles,cpu-clock cargo bench --benches portable -q
+
+...
+
+ Performance counter stats for 'cargo bench --benches portable -q':
+
+       17905130397      cycles                           #    3.538 GHz                    
+           5061.10 msec cpu-clock                        #    0.998 CPUs utilized          
+
+       5.069696306 seconds time elapsed
+
+       5.083833000 seconds user
+       0.087730000 seconds sys
+```
+The average clock speed is now 3.538 GHz - a tiny bit slower, but certainly not enough to eat up the 4x gain we expected to get from AVX-512.
+
+**Conclusion: the dissapointing performance is not due to CPU downclocking**
+
+## SIMD Slowdown Hypothesis 3: Bad Bottleneck
+
+Maybe introducing AVX-512 *is* increasing CPU throughput *isn't* the bottleneck. In the course of normal operations, the CPU needs to do three things: 
+1) load data from memory, 
+2) do calculations with the data, 
+3) write the results back to memory
+
+Modern CPU's are [pipelined](https://en.wikipedia.org/wiki/Instruction_pipelining), meaning they can work on multiple operations at once - fetching the data for operation 2 while waiting for the calculations for operation 1 to finish, for example. Maybe the reason we see such small performance improvement moving from 128-bit registers to 512-bit registers is because there's only a little bit of headroom to improve calculation-speed before we start being limited by how fast the CPU can fetch data from memory. 
+
+We'll test this hypothesis with `perf` as well, this time examining time spent waiting for data from memory in the two different versions. 
+
+Here's the generic version:
+```zsh
+$> cargo build --profile=bench
+    Finished `bench` profile [optimized + debuginfo] target(s) in 0.00s
+$> perf stat -e cycles,instructions,dTLB-loads,dTLB-load-misses,memory_activity.stalls_l1d_miss,memory_activity.stalls_l2_miss,memory_activity.stalls_l3_miss cargo bench --benches portable -q
+
+...
+
+running 1 test
+test bench_portable_simd_method ... bench:      56,319.61 ns/iter (+/- 1,353.98)
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 1 measured; 2 filtered out; finished in 3.82s
+
+
+ Performance counter stats for 'cargo bench --benches portable -q':
+
+       12310510585      cycles                                                               (72.54%)
+       46323697052      instructions                     #    3.76  insn per cycle           (86.18%)
+       10173939731      dTLB-loads                                                           (86.20%)
+             13282      dTLB-load-misses                 #    0.00% of all dTLB cache accesses  (86.18%)
+          22529221      memory_activity.stalls_l1d_miss                                      (85.98%)
+          26151532      memory_activity.stalls_l2_miss                                       (86.16%)
+                 0      memory_activity.stalls_l3_miss                                       (55.54%)
+
+       3.982462173 seconds time elapsed
+
+       3.945781000 seconds user
+       0.033477000 seconds sys
+```
+
+
+
+There's a lot more data here so before we look at the AVX-512 version, let's go through what we're seeing here
+* **cycles**: simply a count of how many CPU cycles our program took
+* **instructions**: a count of how many individual operations the CPU performed while running our program. The note to the side indicates that the CPU executed 4.24 instructions per CPU cycle. Thanks to magic of pipelining, the CPU can sometimes run multiple instructions in parallel, which is why we have a value greater than 1.
+* **dTLB-loads and dTLB-load-misses**: If you're not familiar with the magic that is [virtual memory](https://en.wikipedia.org/wiki/Virtual_memory), the memory addresses our program is using (virtual) and the memory addresses where our data is actually stored (physical) are not the same. The CPU has a Translation Lookaside Buffer that holds `virtual address -> physical address` mappings for easy lookup. The dTLB lines above are measuring the number of times we used that buffer, and the number of times the address we were trying to look up wasn't in the buffer, respectively. If the second value was high, it would mean our program was spending a lot of time waiting for the CPU/operating system (which manages virtual memory) to figure out where the data we wanted was actually stored. If that was happening, it would generally be because the computer was trying to run a bunch of different programs at once, which is beyond the scope of what we can control in our code. These numbers, therefore, are sort a control group, to make sure the problem isn't something outside our control. `dTLB-load-misses` is low, so this isn't what is slowing us down. Good.
+* **memory_activity.stalls_[l1d|l2|l3]_miss**: here, we're measuring the number of cycles the CPU spent waiting for data to arrive, from the [L1, L2, and L3 caches](https://en.wikipedia.org/wiki/CPU_cache) respectively.
+
+If we are in fact memory bottlenecked, we expect that the AVX-512 version will spend more time waiting for data from the cache and have fewer instructions per cycle as a result. Let's see!
+
+Here's the version using AVX-512 operations
+
+```zsh
+$> RUSTFLAGS="-Ctarget-cpu=sapphirerapids" cargo build --profile=bench
+    Finished `bench` profile [optimized + debuginfo] target(s) in 0.00s
+$> RUSTFLAGS="-Ctarget-cpu=sapphirerapids" perf stat -e cycles,instructions,dTLB-loads,dTLB-load-misses,memory_activity.stalls_l1d_miss,memory_activity.stalls_l2_miss,memory_activity.stalls_l3_miss cargo bench --benches portable -q
+
+...
+
+running 1 test
+test bench_portable_simd_method ... bench:      57,231.88 ns/iter (+/- 1,075.56)
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 1 measured; 2 filtered out; finished in 3.62s
+
+
+ Performance counter stats for 'cargo bench --benches portable -q':
+
+       11684855785      cycles                                                               (72.14%)
+       22304519115      instructions                     #    1.91  insn per cycle           (85.97%)
+        3148402434      dTLB-loads                                                           (85.97%)
+             14180      dTLB-load-misses                 #    0.00% of all dTLB cache accesses  (86.23%)
+          16088131      memory_activity.stalls_l1d_miss                                      (86.30%)
+          19413935      memory_activity.stalls_l2_miss                                       (86.24%)
+                 0      memory_activity.stalls_l3_miss                                       (55.29%)
+
+       3.781384089 seconds time elapsed
+
+       3.745695000 seconds user
+       0.031008000 seconds sys
+```
+
+**Well that's interesting...** 
+Expected:
+* Our AVX-512 version takes fewer instructions to complete (22B here vs 46B above). AVX-512 operations complete more calculations in a single instruction, so we expect to require fewer instructions to complete our overall task. While AVX-512's 512-bit operations work on 4x as much data as the 128-bit operations we were using before, we don't actually expect to see 4x fewer instructions: plenty of our code remains unchanged between versions, requiring the same number of CPU instructions. Since we're completing in roughly 1/2 as many instructions, we should revise our "expected" speedup to 2x, down from the theoretical 4x we were looking for before
+* Our AVX-512 version spends less time waiting on data (16M and 19M cycles waiting on L1 and L2 cache respectively here, vs 22M and 26M above). It makes some sense that we'd spend fewer cycles waiting on memory, since we're pulling more data at once. Regardless, the cycles spent waiting for memory are a small fraction of the total cycles, indicating our program is not memory-bound
+Unexpected:
+* The Instructions-Per-Cycle (IPC) drops from 3.73 to 1.90 - nearly a 50% cut!
+
+
+**The dissapointing performance is caused by fewer instructions per cycle, but the reduced IPC is NOT caused by memory bottlenecks**. Our would-be 2x speedup from fewer instructions is being eaten by our 50% reduced IPC.
+
+Ok, then if the non-speedup is being caused by reduced IPC, and the IPC isn't coming from memory bottlebecks... what *is* causing it?
+
+## SIMD Slowdown Hypothesis 4: Poor Port Utilization
+
+Modern processors typically have [superscaling](https://en.wikipedia.org/wiki/Superscalar_processor) capabilities - they are able to load and process multiple instructions at the same time, so long as the instructions run on different areas of the CPU's circuitry. Perhaps the AVX-512 version has worse port utilization. To see what I mean, take a look at this architecture diagram for an Intel Skylake processor (Skylake is an older architecture than the Sapphire Rapids we've been using, but the idea is the same regardless) - focus on the green area on the bottom
+
+![skylake architecture block diagram. Source: https://en.wikichip.org/wiki/intel/microarchitectures/skylake_(server)](images/skylake_block_diagram.png)
+
+If we look closely at the green box titled `Scheduler`, and the green-blue area titled `EUs` below it, we'll see that the Scheduler has a series of "ports" labled "Port 0" through "Port 7", each with an arrow pointing to a separate stack of gold boxes within the EUs area. Each stack of gold boxes is an ["Execution Unit"](https://en.wikipedia.org/wiki/Execution_unit), and each gold box in the diagram is a different operation which that particular execution unit can perform. 
+
+For example: The execution unit under port 0 on the left can conduct a variety of different operations; the execution unit under port 1 can conduct some of the same operations as port 0's EU, but each can also do some operations that the other can't do; port 7's EU can only perform one operation, and it's one neither port 0's EU nor port 1's EU can perform
+
+Perhaps the reason our AVX-512 version isn't performing significanly better than our regular version is because the regular version is better at utilizing the different execution units on the CPU. Perhaps the generic version's simpler instructions are being spread around and able to run in parallel, while the AVX-512 version's more advanced instructions are all backing up behind each other in the same execution unit.
+
+Once again, we can use our handy-dandy `perf` tool to check it out.
+
+```zsh
+$> cargo build --profile=bench
+    Finished `bench` profile [optimized + debuginfo] target(s) in 0.00s
+$> perf stat -e uops_dispatched.port_0,uops_dispatched.port_1,uops_dispatched.port_2_3_10,uops_dispatched.port_4_9,uops_dispatched.port_5_11,uops_dispatched.port_6,uops_dispatched.port_7_8 cargo bench --benches portable -q
+
+...
+
+running 1 test
+test bench_portable_simd_method ... bench:      56,063.44 ns/iter (+/- 784.11)
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 1 measured; 2 filtered out; finished in 1.77s
+
+
+ Performance counter stats for 'cargo bench --benches portable -q':
+
+        2005711390      uops_dispatched.port_0                                             
+        2021689432      uops_dispatched.port_1                                             
+        4820248648      uops_dispatched.port_2_3_10                                        
+         970977728      uops_dispatched.port_4_9                                           
+        4707492435      uops_dispatched.port_5_11                                          
+        2832950257      uops_dispatched.port_6                                             
+         954325184      uops_dispatched.port_7_8                                           
+
+       1.929858742 seconds time elapsed
+
+       1.866476000 seconds user
+       0.061781000 seconds sys
+
+```
+
+```zsh
+$> RUSTFLAGS="-Ctarget-cpu=sapphirerapids" cargo build --profile=bench
+    Finished `bench` profile [optimized + debuginfo] target(s) in 0.00s
+$> RUSTFLAGS="-Ctarget-cpu=sapphirerapids" perf stat -e uops_dispatched.port_0,uops_dispatched.port_1,uops_dispatched.port_2_3_10,uops_dispatched.port_4_9,uops_dispatched.port_5_11,uops_dispatched.port_6,uops_dispatched.port_7_8 cargo bench --benches portable -q
+
+...
+
+running 1 test
+test bench_portable_simd_method ... bench:      56,939.37 ns/iter (+/- 502.53)
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 1 measured; 2 filtered out; finished in 3.85s
+
+
+ Performance counter stats for 'cargo bench --benches portable -q':
+
+        3395445896      uops_dispatched.port_0                                             
+        1500347405      uops_dispatched.port_1                                             
+        3407607339      uops_dispatched.port_2_3_10                                        
+         783550782      uops_dispatched.port_4_9                                           
+        5686887699      uops_dispatched.port_5_11                                          
+        5305377678      uops_dispatched.port_6                                             
+         761331109      uops_dispatched.port_7_8                                           
+
+       4.012589707 seconds time elapsed
+
+       3.942468000 seconds user
+       0.064516000 seconds sys
+```
+
+Alright, that's a lot of numbers. Let's graph them, and see what jumps out.
+
+[instruction count over execution port](generated_images/execution_ports.png)
+
+Well that's unhelpful. The AVX-512 version uses some execution ports more than the generic version and uses others less. So far, we can't conclude that the reduced IPC is due to poor execution unit utilization.
+
+What if we calculate the [entropy](https://en.wikipedia.org/wiki/Entropy_(information_theory)) of these measurements? In information theory, entropy measures the uncertainty of an outcome. Alternatively, you can think of it as a measurement of how evenly distributed the outcomes of a random event are. 
+
+If we imagine every instruction for one of the versions of our program as being drawn out of a bag, one might ask "what are the odds that this instruction is sent to port 0? What are the odds it's sent to port 1? etc. Entropy measures how evenly distributed these odds are. Entropy is at its highes when all options are equally likely, and at its lowest when one option has 100% odds and the others have 0% odds. 
+
+Those interested in the math should click the link above. For now, let's calculate the entropy of our two versions and see if there's a difference. If the AVX-512 version is favoring a few execution ports more than the generic version, we expect it to have a much lower entropy value
+
+* Entropy for the generic version: 2.57
+* Entropy for the AVX-512 version: 2.49
+
+And... not so much difference. Entropy for the AVX-512 version is a tad lower, suggesting its instructions aren't *quite* as evenly distributed as the generic version. The maximum possible entropy for 7 different outcomes - where each outcome is equally likely - is 2.81, and both of our entropy values are pretty close. 
+
+So far, the number of instructions dispatched per execution port doesn't support any conclusions.
+
+We're not done, though: `perf` offers another view at execution 
+
+
+```zsh
+$> cargo build --profile=bench
+    Finished `bench` profile [optimized + debuginfo] target(s) in 0.00s
+$> perf stat -e cycle_activity.stalls_total,exe_activity.1_ports_util,exe_activity.2_ports_util,exe_activity.3_ports_util,exe_activity.4_ports_util,exe_activity.exe_bound_0_ports,uops_executed.stalls cargo bench --benches portable -q
+
+...
+
+running 1 test
+test bench_portable_simd_method ... bench:      56,130.90 ns/iter (+/- 457.55)
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 1 measured; 2 filtered out; finished in 3.80s
+
+
+ Performance counter stats for 'cargo bench --benches portable -q':
+
+         468207550      cycle_activity.stalls_total                                        
+        1787720213      exe_activity.1_ports_util                                          
+        3027284304      exe_activity.2_ports_util                                          
+        2647124941      exe_activity.3_ports_util                                          
+        1990510545      exe_activity.4_ports_util                                          
+           9591371      exe_activity.exe_bound_0_ports                                     
+         468207452      uops_executed.stalls                                               
+
+       3.840780099 seconds time elapsed
+
+       3.806946000 seconds user
+       0.030340000 seconds sys
+```
+
+```zsh
+$> RUSTFLAGS="-Ctarget-cpu=sapphirerapids" cargo build --profile=bench
+    Finished `bench` profile [optimized + debuginfo] target(s) in 0.00s
+$> RUSTFLAGS="-Ctarget-cpu=sapphirerapids" perf stat -e cycle_activity.stalls_total,exe_activity.1_ports_util,exe_activi
+ty.2_ports_util,exe_activity.3_ports_util,exe_activity.4_ports_util,exe_activity.exe_bound_0_ports,uops_executed.stalls cargo bench --benches portable -q
+
+...
+
+running 1 test
+test bench_portable_simd_method ... bench:      56,888.91 ns/iter (+/- 1,104.07)
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 1 measured; 2 filtered out; finished in 1.80s
+
+
+ Performance counter stats for 'cargo bench --benches portable -q':
+
+        1446826978      cycle_activity.stalls_total                                        
+        1798950570      exe_activity.1_ports_util                                          
+        1347050110      exe_activity.2_ports_util                                          
+         753384627      exe_activity.3_ports_util                                          
+         378659263      exe_activity.4_ports_util                                          
+         492967154      exe_activity.exe_bound_0_ports                                     
+        1446826993      uops_executed.stalls                                               
+
+       1.951888827 seconds time elapsed
+
+       1.828831000 seconds user
+       0.122659000 seconds sys
+```
