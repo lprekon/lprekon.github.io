@@ -5,63 +5,60 @@ title = 'Benchmarking Different Vectorization Strategies in Rust'
 +++
 # 
 
-**Outline**
-* What is vectorization/SIMD
-* Different ways to vectorize in Rust
-  * Compiler auto-vectorization
-  * Rust’s portable SIMD crate
-  * (Bonus) SIMBA
-  * Platform specific
-    * X86 vs ARM
-* The algorithm we’ll vectorize
-  * Sliding window method
-  * Pyramid method
-* What did we learn
-
 {{< toc >}}
 
 The first part of this blog post gives a brief overview of what SIMD operations and vectorization is and why you should care. After that I go over the different ways to get SIMD operations in to your Rust code, before finally diving into my different attempts to vectorize B-Spline calculations. If you’re familiar with writing SIMD Rust code and are just interested in seeing this particular example, skip to section 3. If you’re familiar with SIMD operations in general but not in Rust, skip to section 2. If you’re not familiar with SIMD and are ok with a brief overview before diving in, continue on. If you’re not familiar with SIMD and want a more thorough introduction before diving in here, I’ll direct you to McYoung’s delightful explainer (about a 45 minute read) https://mcyoung.xyz/2023/11/27/simd-base64/
 
 
 
-## What is Vectorization/SIMD 
+# What is Vectorization? An Intro to SIMD
 (Skip to section 2 if you’re already familiar with SIMD operations)	
 
 
-Computers are really cool. They do computing. And they do it at speeds orders of magnitude faster than you or I can. In the time it takes us to calculate 2+2, your computer can figure out 2+2 a billion times over. But because we’re naturally greedy little monkeys, this still isn’t fast enough. Your CPU is incredibly fast. Incredibly fast. In fact, it’s about as fast as it can reasonably get [insert citation here]. There’s not a hard limit, but basic physics - power and heat dissipation (, plus quantum tunneling) means that making your CPU run any faster - say, calculating 2+2 five billion times over - is impractical. So, computer engineers have naturally built additional ways to increase computation speed, like multithreading
-
-I hate writing I hate writing I hate writing
-
 Think of your CPU like a motorcycle. Fast, efficient, adaptable; good at weaving between alley-ways and through traffic. If you were going on a scavenger hunt all around a city, it’s exactly the tool you would want. But if you’re carrying packages from Houston to Austin, a motorcycle ain’t the best tool. Sure, it’s fast, but even going felony-speeds that’s a 4 hour round-trip. Delivery half-dozen-packages would take a full 24 hours.
 
-But if you already know all the packages are coming from one place and going to another, you’re not going to use a motorcycle - you’re better off using a truck. Sure, it takes a little longer to make the trip, but when it can deliver hundreds of packages at once, as opposed to the single package at a time the motorcycle can manage. Of course if we’re running from point-to-point around town, the truck might not be the best choice.
+If you already know all the packages are coming from one place and going to another, you’re not going to use a motorcycle to deliver them, you're going to use a truck. Sure, it takes a little longer to make the trip, but when it can deliver hundreds of packages at once, as opposed to the single package at a time the motorcycle can manage, you're ultimately saving time. Of course if we’re running from point-to-point around town, the truck might not be the best choice.
 
 Back to computers, the motorcycle is your CPU, and the truck is your GPU. Your CPU can perform operations very quickly, but there is some overhead. For every operation it’s got to pull in the instruction and the data, perform the operation, possibly store the results, and then go back for more. If the next operation depends on the results of the current one, then it’s the best tool you’ve got. But, if you know all your packages are going to the same place - that is to say, if you have a lot of data, and you want to do the same operation on all of it - then you’re better off running on a GPU, the 18-wheeler to your CPU’s motorcycle.
 
-But sometimes you don’t want to run your code on a GPU. Maybe you don’t have one, maybe you don’t feel like writing GPU code [insert link], or maybe you just don’t have enough data to make it worth it. If your CPU is the motorcycle delivering one package at a time, and your GPU is an 18-wheeler delivering hundreds, what do you do when you have a handful of packages? Then you turn to… a motorcycle with a side car! It turns out your CPU actually has some parallel processing capabilities like your GPU does (maybe, depending on how fancy it is [insert link]). These operations, called Single Instruction Multiple Data (SIMD) or sometimes vector operations, take multiple arguments in parallel and perform the same operation across them. For example, doing an element-wise add across two lists of numbers. In a regular CPU context, your processor would grab the first number from each list, add them together, write the result back to memory, then repeat on the next set of numbers. Using SIMD operations, the CPU can pull several numbers at a time from each list, add each chunk together, and write the entire chunk back at once [include graphics here]. We’re going to exercise this oft-unused circuitry to do some math in Rust, and compare and contrast different methods for doing so.
+But sometimes you don’t want to run your code on a GPU. Maybe you don’t have one, maybe you don’t feel like learning how to writing GPU code, or maybe you just don’t have enough data to make it worth it. If your CPU is the motorcycle delivering one package at a time, and your GPU is an 18-wheeler delivering hundreds, what do you do when you have a handful of packages? Then you turn to… a motorcycle with a side car! It turns out your CPU actually has some parallel processing capabilities like your GPU does (assuming it's no more than a decade old or so). These operations, called Single Instruction Multiple Data (SIMD) or sometimes vector operations, take multiple arguments in parallel and perform the same operation to each one. For example, doing an element-wise add across two lists of numbers. 
 
-^^ maybe delete this bit and just direct people to McYoung
+Under normal conditions your processor would grab the first number from each list, add them together, write the result back to memory, then repeat on the next set of numbers. 
+
+![A diagram demonstrating adding 4 pairs of numbers together, one after the other](generated_images/scalar_adding.png)
+
+Using SIMD operations, the CPU can pull several numbers at a time from each list, add each chunk together, and write the entire chunk back at once 
+
+![a diagram demonstrating adding 4 pairs of numbers together, all at once](generated_images/vector_adding.png)
+
+We’re going to exercise this rarely-explicitly-used circuitry to do some math in Rust, and compare and contrast different methods for doing so.
 
 
-When we write a loop like this [show simple loop], that gets compiled down into assembly that looks like this [x86 intel syntax version] [arm version]
+The next section talks about different ways to get your compiled Rust code to include SIMD operations, and after that we’ll focus on a particular algorithm which we'll optimize with SIMD instructions.
 
-This code checks the loop condition, jumping over the loop body if the condition is false, and continuing into the loop body otherwise. At the end of the loop body, we jump back to the top of the loop and continue. About half of this loop is useful business logic, and about half - the branching and jumping - is what we’d consider overhead. If this loops runs a few times at the start of your program and never again, then it’s probably fine to leave it alone. But if this loop runs constantly and is at the core of your program, then it’s what we call a “hot” loop, and it might be worth it to try and improve performance. 
+# Different Ways to Vectorize in Rust
 
-One way you could improve performance is by “unrolling” the loop, doing multiple steps per loop iteration [insert more pictures]. Loop unrolling increases the amount of useful work done per unit-overhead, or conversely, reduces the amount of overhead required to do a unit of useful work. We’re going to “vectorize” our loops, doing essentially the same thing, but by using SIMD operations instead of loop unrolling, we’ll get even greater benefit. It’ll look something like this [picture of loop with x86 vector operations]
+For rest of this post, we’re going to be working in Rust. If you’re not a Rust developer, there will still be useful information here about how SIMD programming (and the pitfalls-thereof). We’ll be looking at three different ways to get our Rust code compiled into SIMD operations: 1) The compiler’s [auto-vectorization](https://llvm.org/docs/Vectorizers.html) 2) Rust’s [portable SIMD](https://doc.rust-lang.org/std/simd/index.html) module, and 3) CPU-specific intrinsics, focusing on a common 64-bit Intel x86 processor. Each method will have its own performance/portability/ease-of-use trade offs
 
-The next section talks about different ways to get your compiled Rust code to include SIMD operations, and after that we’ll focus on the particular algorithm I optimized with SIMD instructions.
+## Let the Compiler Do the Work
+The Rust compiler - alongside GCC, and any compiler based on LLVM like Clang - will do its best to turn your regular old code into fancy SIMD code for you. Whenever you compile with optimizations, the compiler does its best to identify portions that perform the same operation on sequential bits of data and speed things up with vector operations - for example, walking a pair of arrays and multiplying the elements together, or counting the number of times an element of the first array is larger than its companion in the second array. 
 
-## Different Ways to Vectorize in Rust
+The compiler won't always recognize vectorizable code, though. The exact process by which a compiler determines what it can vectorize will vary between compilers and between versions. But, we can help the compiler help us by, in performance-sensitive parts of code we'd like the compiler to vectorize, minimizing conditionals and minimizing function calls. Conditionals and function calls make it harder for the compiler to "see" what our code is doing at the grand scale, which inhibits its ability to optimize it. That's not to say that a single If/Else kills auto-vectorization dead; but if you have a complicated loop you're trying to optimize, simplifying the branches may help more than you expect, thanks to the power of auto-vectorization!
 
-For rest of this post, we’re going to be working in Rust. If you’re not a Rust developer, there will still be useful information here, but also, why aren’t you [insert link to why rust is great]? We’ll be looking at three different ways to get our Rust code compiled into SIMD operations: 1) The compiler’s auto-vectorization [link] 2) Rust’s portable SIMD [link] crate, and 3) CPU-specific intrinsics, for both 64 bit x86 and 64 bit ARM. Each method will have its own performance/portability/ease-of-use trade offs
+## Rust's Portable SIMD module
 
-### Rust's Auto-Vectorizer
-One of the great things about Rust is that the compiler will automatically turn your boring old scalar instructions into shiny awesome vector instructions. Well, actually LLVM does the auto-vectorization, so any compiler build on top of LLVM - Rust, [insert others with links] - will get the same treatment. 
+Rust's handy-dandy [portable SIMD module](https://doc.rust-lang.org/std/simd/index.html) gives us the ability to write generic SIMD code, and then leave it to the compiler to figure out how to translate our SIMD operations into vector operations supported by the target CPU. If we're building for a CPU with no SIMD - fairly rare for most general-purpose computing applications, but common in embedded programming - the Rust compiler will even translate our code into plain-old scalar operations!
 
-## The Algorithm We'll Vectorize
+The only catch is the portable SIMD module is still considered an experimental API, and so it requires using [nightly Rust](https://doc.rust-lang.org/book/appendix-07-nightly-rust.html), as opposed to the default stable Rust. I've never had run into any stability issues with nightly Rust, but some organizations may be unwilling to accept the risk.
+
+## CPU Intrinsics
+
+The last method we'll explore to add SIMD operations to our code is with CPU intrinsics. In this method, we'll add special function calls to our code that the compiler will recognize as specific CPU operations we'd like to utilize. This method is similar to writing [inline assembly](https://doc.rust-lang.org/reference/inline-assembly.html), but with the added benefit that we can rely on the compiler completely to figure out how best to use available registers
+
+# The Algorithm We'll Vectorize
 Ok, let’s talk about the actual algorithm we want to speed up with SIMD operations: we’ll be calculating the value of [B-Splines](https://en.wikipedia.org/wiki/B-spline). If you’ve worked in CAD or digital graphics products, you may have heard the term, and know it as “that tool that lets me draw curvy lines by moving points around, even though the line doesn’t go exactly through the points”. In general, [Splines](https://en.wikipedia.org/wiki/Spline_(mathematics)) are piece-wise polynomial functions known for their ability to trace out arbitrary curves, and B-Splines are a specific way to define and build splines. If you’re unfamiliar with the math behind B-splines, here’s a brief primer, so you can understand the code later
 
-### A Brief Primer on B-Splines
+## A Brief Primer on B-Splines
 A B-spline is a recursive piece-wise function defined using three values
 1. A list of numbers, called "knots", which define the intervals considered by the piece-wise function
 2. A second list of numbers, called "control points" (or coefficients), which weight the different pieces of the function
@@ -136,7 +133,7 @@ There's a lot more we could say about B-Splines (what happens if we mess with th
 
 Now that that's out of the way, let's take a look at the code we'll be optimizing
 
-### Evaluating a B-Spline with Rust
+## Evaluating a B-Spline with Rust
 
 Let's begin with a straight forward implementation of our spline math. This code is intentionally sub-optimal, so we'll have a baseline for our benchmarking
 
@@ -232,7 +229,7 @@ Looks like evaluating all 100 inputs takes about 800k nanoseconds, or roughly 0.
 
 From this point on, as we explore different vectorization strategies, there are lots of little details that a competant programmer might overlook at first, but which can have a large impact on performance - ineffecient memory allocation, redundant looping, etc. I went through rigamaroll of write-profile-optimize when I first wrote these operations as part of my [KAN Library](https://crates.io/crates/fekan). I will quietly include the results of all those lessons-learned in the code I show going forward, because I want each iteration of the algorithm to be the best version of itself it can be.
 
-## Optimization #1: From Recursion to Looping
+# Optimization #1: From Recursion to Looping
 
 To understand our first optimization, let's take a step back and consider how the value of `B_i_k`, the value of the `i'th` basis function of degree `k`, depends on the values of the basis functions of degree `k-1`
 
@@ -341,7 +338,7 @@ This method takes about 64k nanoseconds. Looks like we got over a 10x speedup ju
 3. **Auto-vectorization**. In recursive mode, the compiler was limited in what it could assume about our code, so it was forced to be conservative in how it optimizied and wrote assembly to do exactly what we described and nothing more - read a few values, multiply and add them together, and give a single value back. Now that we're working a loop, the compiler is able to recognize that we're walking a vector and performing the same operation at each step, and do things smarter: the compiler is generating assembly with SIMD operations. While our Rust code says "for each index 0..n, read a few values, multiply and add them together, and store the single result", the assembly generated by the compiler now says "for every chunk of indexes [0..i]...[n-i..n], read several chunks of values, multiply and add the chunks together, and store the several results all at once". We're getting vectorization for free, just by writing code that's easier for the compiler to understand!
 
 
-## Optimization #2: Rust's Portable SIMD Crate
+# Optimization #2: Rust's Portable SIMD Crate
 
 Now we'll start introducing SIMD operations using Rust's [portable SIMD module](https://doc.rust-lang.org/std/simd/index.html). 
 
@@ -574,7 +571,7 @@ Broadly speaking, there are three things that could be going wrong:
 2. CPU downclocking. The CPU could be slowing itself down to help deal with the extra heat generated by 512-bit operations, which it turns out [is a thing that happens](https://en.wikipedia.org/wiki/Advanced_Vector_Extensions#Downclocking)
 3. CPU Bottlenecking. We were able to get our code do more calculations with fewer instructions, but we hit a bottleneck somewhere limiting how fast we can get through instructions
 
-### SIMD Slowdown Hypothesis 1: Cold Code
+## SIMD Slowdown Hypothesis 1: Cold Code
 
 First things first - are we actually *using* the SIMD loops enough for the faster calculations to matter? We expect the SIMD-using `1..=degree` loop to be "hot", meaning we spend a significant chunk of runtime there, and thus speeding up the loop should speed up the overall program. But, maybe those loops *are* running faster, but they're actually "cold" - they represent a small fraction of our overall runtime, so we don't notice any speed ups. Let's really crank the size of the calculations we're benchmarking and see if that reveals a greater difference between the version compiled for a generic CPU, and the version compiled for a Sapphire Rapids CPU with AVX-512 operations
 
@@ -644,7 +641,7 @@ From **477k +/- 17k** to **471k +/- 8k**. There's a *bit* of a difference, but w
 
 **Conclusion: The dissapointing performance is not caused by cold SIMD loops**
 
-### SIMD Slowdown Hypothesis 2: Dastardly Downclocking
+## SIMD Slowdown Hypothesis 2: Dastardly Downclocking
 
 One interesting fact I was surprised to learn when I started SIMD programming: CPUs will reduce their clockspeed for [programs](https://blog.cloudflare.com/on-the-dangers-of-intels-frequency-scaling/) with AVX instructions. Since these instructions operate on more data at once, they consume more power, and thus generate more heat-per-unit-time than the processor usually has to handle; it makes sence the processor might need to slow down in response.
 
@@ -712,7 +709,7 @@ Not by any significant amount. The average clock speed is now 3.239 GHz - that's
 
 **Conclusion: the dissapointing performance is not due to CPU downclocking**
 
-### SIMD Slowdown Hypothesis 3: Bad Bottleneck
+## SIMD Slowdown Hypothesis 3: Bad Bottleneck
 
 That leaves bottlenecks. Somewhere, deep in the bowels of our processor, moving from 128-bit to 512-bit operations is causing us to get "stuck" waiting on *something*. 
 1. Memory. It could be that the main thing holding our program back from running faster isn't the speed at which we can calculate basis values, but the speed at which we can read data from and write data to memory
@@ -911,25 +908,15 @@ Now, the astute reader will notice that we were trying to account for a missing 
 
 So, we're going to conclude our investigation of Rust's portable SIMD module, and leave this section with the following conclusion: **Our attempts to speed up our program by adding data-level parallelism with Rust's portable SIMD module were stymied by reduced instruction-level parallelism caused by the nuances of our CPU's microarchitecture.**
 
-Now, we can't say it's *never* useful to add data-parallelism with the Rust portable SIMD module, we can be certain it didn't help for our use case. Even so, you've now seen an example of how to add SIMD operations to code, benchmark, and troubleshoot issues. Next, we'll explore another way to add SIMD operations to our code and see if it gives better performance. It's unlikely, but sometimes [compilers get weird](https://x.com/rflaherty71/status/1894971059885219855) about how they translate high level code into assembly, so it's worth a shot!
+Now, we can't say it's *never* useful to add data-parallelism with the Rust portable SIMD module, we can be certain it didn't help for our use case. Even so, you've now seen an example of how to add SIMD operations to code, benchmark, and troubleshoot issues. Next, we'll explore another way to add SIMD operations to our code and see if it gives better performance. It's unlikely, but sometimes [compilers get weird](https://x.com/rflaherty71/status/1894971059885219855) about how they translate high level code into assembly, so we never know for sure what we're going to get. It's worth a shot!
 
-## Optimization #2: x86 Intrinsics
+# Optimization #2: x86 Intrinsics
 
+Ok, now we're going to try rewriting our function using the x86 intrinsics provided by the [Rust arch module](https://doc.rust-lang.org/core/arch/index.html). Essentially, we're going to tell the compiler exactly which CPU instruction we want to use for our SIMD operations. This code is going to be even more verbose than the last version, but let's take a look at the new function, and then I'll explain what we're looking at
 
-[here's in intrinsics code]
-
-[we have to use the `unsafe` tag because we're going outside of Rust's borrow checker to interact with data directly]
-
-[`_mm512` means "use a 512-bit register. `pd` means "Precision Double" aka a 64-bit value. The bit in the middle is the operation. the 'u' after "store" and "load" means "unaligned", since with Rust we can't guarantee that the data is aligned on a 64-byte boundary - we'll crash if we try to use the aligned version]
-
-[our code gets even more verbose since we can't use pretty things like `a + b` or `a >= b` and instead have to use ugly function calls like `_mm512_add_pd(a, b)` and `_mm512_ge_pd(a, b)`]
 
 ```rust
-#[cfg(all(
-    target_arch = "x86_64",
-    target_feature = "sse2",
-    target_feature = "avx512f",
-))]
+#[cfg(all(target_arch = "x86_64", target_feature = "avx512f",))]
 pub fn b_spline_x86_intrinsics(
     inputs: &[f64],
     control_points: &[f64],
@@ -938,15 +925,14 @@ pub fn b_spline_x86_intrinsics(
 ) -> Vec<f64> {
     use std::arch::x86_64::*;
     let mut outputs = Vec::with_capacity(inputs.len());
-    let mut basis_activations = vec![0.0; knots.len() - 1];
+    let num_k0_activations = knots.len() - 1;
+    let mut basis_activations = vec![0.0; num_k0_activations];
     for x in inputs {
-        println!("x = {}", x);
         let x_splat = unsafe { _mm512_set1_pd(*x) };
 
         let mut i = 0;
         // SIMD step for the degree-0 basis functions
-        while i + SIMD_WIDTH < knots.len() - 1 {
-            println!("i = {}", i);
+        while i + SIMD_WIDTH <= num_k0_activations {
             unsafe {
                 let knots_i_vec = _mm512_loadu_pd(&knots[i]);
                 let knots_i_plus_1_vec = _mm512_loadu_pd(&knots[i + 1]);
@@ -961,7 +947,7 @@ pub fn b_spline_x86_intrinsics(
             i += SIMD_WIDTH;
         }
         // scalar step for the degree-0 basis functions
-        while i < knots.len() - 1 {
+        while i < num_k0_activations {
             if knots[i] <= *x && *x < knots[i + 1] {
                 basis_activations[i] = 1.0;
             } else {
@@ -972,7 +958,7 @@ pub fn b_spline_x86_intrinsics(
         for k in 1..=degree {
             let mut i = 0;
             // SIMD step for the higher degree basis functions
-            while i + SIMD_WIDTH < knots.len() - k - 1 {
+            while i + SIMD_WIDTH <= num_k0_activations - k {
                 unsafe {
                     let knots_i_vec = _mm512_loadu_pd(&knots[i]);
                     let knots_i_plus_1_vec = _mm512_loadu_pd(&knots[i + 1]);
@@ -1007,7 +993,7 @@ pub fn b_spline_x86_intrinsics(
                 i += SIMD_WIDTH;
             }
             // scalar step for the higher degree basis functions
-            while i < knots.len() - k - 1 {
+            while i < num_k0_activations - k {
                 let left_coefficient = (x - knots[i]) / (knots[i + k] - knots[i]);
                 let left_recursion = basis_activations[i];
 
@@ -1023,7 +1009,7 @@ pub fn b_spline_x86_intrinsics(
         // SIMD step for the final result
         let mut i = 0;
         let mut result = 0.0;
-        while i + SIMD_WIDTH < control_points.len() {
+        while i + SIMD_WIDTH <= control_points.len() {
             unsafe {
                 let control_points_vec = _mm512_loadu_pd(&control_points[i]);
                 let basis_activations_vec = _mm512_loadu_pd(&basis_activations[i]);
@@ -1043,20 +1029,68 @@ pub fn b_spline_x86_intrinsics(
 }
 ```
 
-[that's the code. Was it worth it?]
+Our code gets even more verbose since we can't use pretty things like `a + b` or `a >= b` when working with our data anymore and instead have to use ugly function calls like `_mm512_add_pd(a, b)` and `_mm512_ge_pd(a, b)`
+
+All those `__mm512_*` functions are our x86 instrinsics; They each map directly to a specific assembly instruction provided by the AVX-512 feature. I've heard folks say one of the drawbacks to programming with Intel x86 intrinsics is how hard it makes it to read the code, but frankly I think it's pretty easy once you learn to break it down. Here's how to read the function calls:
+* `_mm512` at the front means we're using 512-bit registers - the `ZMM` registers we mentioned before. If we wanted to with `YMM` or `XMM` registers we'd replace the `512` with `256` or `128` respectively
+* the `pd` at the end is short for "Precision Double", aka a 64-bit floating-point value. We'd replace this with `epi64` if we wanted to work on 64 bit integers instead of floats
+* everything between those two pieces describes the specific operation. `add` means we're adding, `mul` means we're multipling, `storeu` and `loadu`  means we're storing and loading (and not worrying if the memory address is 64-byte aligned, hence the "u" for "unaligned"), etc.
+You can browse through the available operations and their short descriptions on [Rust's doc page for x86_64 instrinsics](https://doc.rust-lang.org/core/arch/x86_64/index.html) or go straight to the source with [Intel's Instrinsics Guide](https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html#expand=4789)
+
+
+You may have noticed that all of our intrinsics calls live inside of `unsafe` blocks. The Rust compiler goes to [great pains](https://doc.rust-lang.org/book/ch04-00-understanding-ownership.html) to ensure any code you write is "safe" and doesn't do things like access invalid memory, modify data shared between threads, or other things that can lead to "undefined behavior" and represent a [significant source of security vulnerabilities in software](https://www.keysight.com/blogs/en/tech/nwvs/2024/03/21/the-impact-of-rust-on-security-development). 
+
+Since our intrinsics calls compile straight to hand-picked assembly instructions, we prevent the compiler from doing things like bounds checks on our loads, or even such basic safety checks as *ensuring valid assembly for the target CPU* (what if we're compiling for an x86 cpu without AVX-512 or even, \*gulp\* an ARM CPU?!). Wrapping the intrinsics code in an `unsafe` block is sort of like signing a liability waiver: we acknowledge that Rust is not providing its normal safety guarantees to code within the block, and it's incumbent on us, the programmer, to ensure our code is "safe". 
+
+We avoid out-of-bounds memory accesses in our SIMD loops by ensuring `i` never refers to an element less than `SIMD_WIDTH` (which equals 8, as defined above) elements from the end, so when we pull 8 64-bit elements with `_mm512_loadu_pd` or write 8 elements with `_m512_store_pd`, we're never going past the end of our vectors.
+
+And we make sure we actually *have* AVX-512 functionality available with that `#[cfg(...)]` block above our function. That annotation tells the compiler to only include and compile this function when it's compiling for a CPU with the x86_64 architecture with the AVX-512 feature. The AVX-512 requirement is probably sufficient, but we'll include the x86 requirement anyway - a bit of extra safety, with the added bonus of telling any future readers of our code who may not be familiar with AVX-512 that it's related to the x86 architecture. We include the same thing above our benchmark, so it only gets included when we're building for the proper machine
+
+```rust
+#[cfg(all(target_arch = "x86_64", target_feature = "avx512f",))]
+#[bench]
+fn bench_intrinsic_simd_method(b: &mut Bencher) {
+    let (degree, control_points, knots, inputs) = get_test_parameters();
+    b.iter(|| {
+        let _ = b_spline_x86_intrinsics(&inputs, &control_points, &knots, degree);
+    });
+}
+```
+
+
+So, that's what it takes to use x86 intrinsics in Rust. What sort of performance improvement does it bring?
 
 ```zsh
-[ec2-user@ip-172-31-22-254 spline_simd_benchmarking]$ RUSTFLAGS="-Ctarget-cpu=sapphirerapids" cargo bench -q
+$> RUSTFLAGS="-Ctarget-cpu=native" cargo bench
 
 ...
 
 running 4 tests
-test bench_recursive_method      ... bench:     905,901.60 ns/iter (+/- 6,055.91)
-test bench_simple_loop_method    ... bench:      66,773.90 ns/iter (+/- 789.91)
-test bench_portable_simd_method  ... bench:      56,822.65 ns/iter (+/- 484.04)
-test bench_intrinsic_simd_method ... bench:     109,671.92 ns/iter (+/- 1,257.02)
+test bench_intrinsic_simd_method ... bench:      52,007.98 ns/iter (+/- 1,239.71)
+test bench_portable_simd_method  ... bench:      54,111.01 ns/iter (+/- 1,084.46)
+test bench_recursive_method      ... bench:     773,143.01 ns/iter (+/- 20,809.34)
+test bench_simple_loop_method    ... bench:      63,524.26 ns/iter (+/- 2,502.52)
 
-test result: ok. 0 passed; 0 failed; 0 ignored; 4 measured; 0 filtered out; finished in 7.28s
+test result: ok. 0 passed; 0 failed; 0 ignored; 4 measured; 0 filtered out; finished in 15.42s
 ```
 
-[Nope, Not even a little bit! The intrinsics version takes twice as long as the portable version. Another example of [the compiler being smarter than we are](https://razorsh4rk.github.io/rant/2020/02/14/you-are-not-smarter-than-the-compiler.html)]
+For all the extra verbosity, we got a 1.04x speedup over our portable SIMD code. Is it worth it? There are certainly circumstances where even a 4% reduction in runtime brings sizable benefits, but for a function that can't even run on some processors, I'd hoped for more. Okedoke, let's wrap this thing up...
+
+
+## Conclusion
+
+Where does this all leave us? Here's our final score:
+
+![Graph showing relative speeds of our different implementation methods](generated_images/final_times.png)
+
+We get the vast majority of our speedup just moving from a recursive implementation to a loop-based one, getting rid of the recursive overhead and letting LLVM's auto-vectorizer do more optimization work for us; Even if we cut the advantage in half (to account for the fact that the recursive version has to calculate all basis functions besides the top layer twice), it's still a 6x speed boost over recursion. **If you're concerned about performance, stay away from recursion, and embrace loops**.
+
+Rewriting our loop-based method using Rust's portable SIMD module resulted in a non-trivial ~1.15x speedup, but did cost us a bit in code-brevity: we went from 30 lines of code to 300. Now, even though the Rust code tripled, that doesn't mean the compiled assembly necessarily trippled; if it did, we'd be worried about larger functions losing their gains to instruction cache misses. So, even for larger functions, **moving to a portable SIMD implementation may be worth it for performance-sensitive programs**.
+
+We'd hoped that by rewriting our function using explicit SIMD code, we'd be able to take advantage of the bigger 512-bit registers and go even faster. Dissapointingly, while we did in-fact improve data-level parallelism and reduce the total number of instructions required to complete our calculations, those gains were cancelled out by worse instruction-level parallelism and thus fewer instructions-per-cycle, resulting in essentially unchanged runtime. 
+
+That being said, it was trivial to enable the 512-bit operations - we just had to pass a flag to our compiler. If you're able to compile and benchmark your code on the same type of machine that will run it, **it's worth it to pass `-Ctarget-cpu=native` to the compiler and see what happens**
+
+Finally, using intrinsics to inject SIMD operations into our code had a dissapointing return on investment. At a minor cost of readability and a significant cost of *portablity*, we only ekked out a measily 1.04x speedup. Those extremely concerned with performance may cheer *anything* that could improve speed by 4%, but for everyone else, the cost of maintaining a separate portable version of the optimized functions and conditionally compile the correct version will outweigh the cost. **Using SIMD intrinsics generally isn't worth it.**
+
+Just because you're not running on a GPU doesn't mean you can't take advantage of greater parallelism, but nothing is free. SIMD operations are an option when your CPU supports it, but I would only recommend it for the most speed-conscious; for everyone else, focusing on generally-efficient code will provide the most bang-for-your-buck
