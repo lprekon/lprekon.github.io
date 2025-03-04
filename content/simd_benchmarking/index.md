@@ -1,6 +1,6 @@
 +++
 date = '2025-02-12T19:00:59-05:00'
-draft = true
+draft = false
 title = 'Benchmarking Different Vectorization Strategies in Rust'
 +++
 # 
