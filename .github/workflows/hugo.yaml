@@ -50,11 +50,29 @@ jobs:
         uses: actions/configure-pages@v5
 
       # Execute image-generation scripts
+      - name: Install TeX Live
+        run: |
+          # Update package list
+          sudo apt-get update
+
+          # Install TeX Live with commonly needed packages for matplotlib
+          sudo apt-get install -y --no-install-recommends \
+            texlive-base \
+            texlive-latex-recommended \
+            texlive-fonts-recommended \
+            texlive-latex-extra \
+            texlive-science \
+            texlive-pictures \
+            dvipng \
+            cm-super
+
+          # Verify LaTeX installation
+          latex --version
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.x"
-      - name: Install base dependencies
+      - name: Install base python dependencies
         run: python -m pip install --upgrade pip && pip install jupyter matplotlib numpy
       - name: Iterate and Execute Notebooks
         run: |
