@@ -7,13 +7,11 @@ title = 'Benchmarking Different Vectorization Strategies in Rust'
 
 {{< toc >}}
 
-The first part of this blog post gives a brief overview of what SIMD operations and vectorization is and why you should care. After that I go over the different ways to get SIMD operations in to your Rust code, before finally diving into my different attempts to vectorize B-Spline calculations. If you’re familiar with writing SIMD Rust code and are just interested in seeing this particular example, skip to section 3. If you’re familiar with SIMD operations in general but not in Rust, skip to section 2. If you’re not familiar with SIMD and are ok with a brief overview before diving in, continue on. If you’re not familiar with SIMD and want a more thorough introduction before diving in here, I’ll direct you to McYoung’s delightful explainer (about a 45 minute read) https://mcyoung.xyz/2023/11/27/simd-base64/
+The first part of this blog post gives a brief overview of what SIMD operations and vectorization is and why you should care. After that I go over the different ways to get SIMD operations in to your Rust code, before finally diving into my different attempts to vectorize B-Spline calculations. If you’re familiar with writing SIMD Rust code and are just interested in seeing this particular example, skip to [Evaluating a B-Spline with Rust](#evaluating-a-b-spline-with-rust). If you’re not familiar with SIMD and want a more thorough introduction, I’ll direct you to McYoung’s delightful explainer (about a 55 minute read) at https://mcyoung.xyz/2023/11/27/simd-base64/
 
 
 
 # What is Vectorization? An Intro to SIMD
-(Skip to section 2 if you’re already familiar with SIMD operations)	
-
 
 Think of your CPU like a motorcycle. Fast, efficient, adaptable; good at weaving between alley-ways and through traffic. If you were going on a scavenger hunt all around a city, it’s exactly the tool you would want. But if you’re carrying packages from Houston to Austin, a motorcycle ain’t the best tool. Sure, it’s fast, but even going felony-speeds that’s a 4 hour round-trip. Delivery half-dozen-packages would take a full 24 hours.
 
@@ -31,8 +29,7 @@ Using SIMD operations, the CPU can pull several numbers at a time from each list
 
 ![a diagram demonstrating adding 4 pairs of numbers together, all at once](generated_images/vector_adding.png)
 
-We’re going to exercise this rarely-explicitly-used circuitry to do some math in Rust, and compare and contrast different methods for doing so.
-
+In this article, we're going to show some straight-forward code to do some fancy mathematical calculations, and then we're going to "vectorize" it: turn it into SIMD code that will exercise this rarely-explicitly-used circuitry to run even faster. We'll explore a couple different options for doing so.
 
 The next section talks about different ways to get your compiled Rust code to include SIMD operations, and after that we’ll focus on a particular algorithm which we'll optimize with SIMD instructions.
 
@@ -40,7 +37,7 @@ The next section talks about different ways to get your compiled Rust code to in
 
 For rest of this post, we’re going to be working in Rust. If you’re not a Rust developer, there will still be useful information here about how SIMD programming (and the pitfalls-thereof). We’ll be looking at three different ways to get our Rust code compiled into SIMD operations: 1) The compiler’s [auto-vectorization](https://llvm.org/docs/Vectorizers.html) 2) Rust’s [portable SIMD](https://doc.rust-lang.org/std/simd/index.html) module, and 3) CPU-specific intrinsics, focusing on a common 64-bit Intel x86 processor. Each method will have its own performance/portability/ease-of-use trade offs
 
-## Let the Compiler Do the Work
+## Auto-Vectorization: Let the Compiler Do the Work
 The Rust compiler - alongside GCC, and any compiler based on LLVM like Clang - will do its best to turn your regular old code into fancy SIMD code for you. Whenever you compile with optimizations, the compiler does its best to identify portions that perform the same operation on sequential bits of data and speed things up with vector operations - for example, walking a pair of arrays and multiplying the elements together, or counting the number of times an element of the first array is larger than its companion in the second array. 
 
 The compiler won't always recognize vectorizable code, though. The exact process by which a compiler determines what it can vectorize will vary between compilers and between versions. But, we can help the compiler help us by, in performance-sensitive parts of code we'd like the compiler to vectorize, minimizing conditionals and minimizing function calls. Conditionals and function calls make it harder for the compiler to "see" what our code is doing at the grand scale, which inhibits its ability to optimize it. That's not to say that a single If/Else kills auto-vectorization dead; but if you have a complicated loop you're trying to optimize, simplifying the branches may help more than you expect, thanks to the power of auto-vectorization!
@@ -128,10 +125,10 @@ There's a lot more we could say about B-Splines (what happens if we mess with th
 
 **In conclusion: B-Splines are functions that let us trace arbitrary curves. To determine the value of the spline at some point `x`:**
 1. **evaluate each basis function (which is a recursive function) at `x`**
-2. **multiply by the basis function outputs by their corresponding conrtrol points**
+2. **multiply by the basis function outputs by their corresponding control points**
 3. **sum the results**
 
-Now that that's out of the way, let's take a look at the code we'll be optimizing
+Now that that we have some grasp of the math we'll be doing, let's implement it in code
 
 ## Evaluating a B-Spline with Rust
 
@@ -140,6 +137,7 @@ Let's begin with a straight forward implementation of our spline math. This code
 ```rust
 /// recursivly compute the b-spline basis function for the given index `i`, degree `k`, and knot vector, at the given parameter `x`
 fn basis_activation(i: usize, k: usize, x: f64, knots: &[f64]) -> f64 {
+    // If degree is 0, the basis function is 1 if the parameter is within the range of the knot, and 0 otherwise
     if k == 0 {
         if knots[i] <= x && x < knots[i + 1] {
             return 1.0;
@@ -147,26 +145,32 @@ fn basis_activation(i: usize, k: usize, x: f64, knots: &[f64]) -> f64 {
             return 0.0;
         }
     }
-    let left_coefficient = (x - knots[i]) / (knots[i + k] - knots[i]);
-    let left_recursion = basis_activation(i, k - 1, x, knots);
 
-    let right_coefficient = (knots[i + k + 1] - x) / (knots[i + k + 1] - knots[i + 1]);
+    // Otherwise, we compute compute basis functions one degree lower, and use them to compute the current basis function
+    let left_recursion = basis_activation(i, k - 1, x, knots);
     let right_recursion = basis_activation(i + 1, k - 1, x, knots);
 
+    // Compute the weights for the left and right "child" basis functions
+    let left_coefficient = (x - knots[i]) / (knots[i + k] - knots[i]);
+    let right_coefficient = (knots[i + k + 1] - x) / (knots[i + k + 1] - knots[i + 1]);
+
+    // Combine the left and right basis functions with the computed weights to produce the value of the current basis function
     let result = left_coefficient * left_recursion + right_coefficient * right_recursion;
     return result;
 }
 
 /// Calculate the value of the B-spline at the given parameter `x`
-fn b_spline(x: f64, control_points: &[f64], knots: &[f64], degree: usize) -> f64 {
+pub fn b_spline(x: f64, control_points: &[f64], knots: &[f64], degree: usize) -> f64 {
     let mut result = 0.0;
     for i in 0..control_points.len() {
+        // compute the value of each top-level basis function, multiplying it by the corresponding control point, and sum the results
         result += control_points[i] * basis_activation(i, degree, x, knots);
     }
     return result;
 }
-
 ```
+
+The function `b_spline()` calculates the value of a B-Spline function - defined by the provided knots and control points - at the provided point `x`. `b_spline()` calls `basis_activation()` to get the value of each top-level basis function at `x`, multiplies the value by the corresponding control point, and returns the final sum. In order to calculate the value of a given basis function, `basis_activation()` calls itself recursively to find the value of each "child" basis function on degree lower; once it gets down to `degree = 0`, there are no more "children" basis functions to consider, and the function returns `1` or `0` depending on whether or not `x` is between the specific knots considered by that basis function.
 
 We'll be benchmarking this code with Rust's built-in benchmarking tool [`cargo bench`](https://doc.rust-lang.org/cargo/commands/cargo-bench.html). Here's a quick look at our benchmarking code
 
@@ -175,7 +179,7 @@ We'll be benchmarking this code with Rust's built-in benchmarking tool [`cargo b
 extern crate test;
 use test::Bencher;
 
-use rust_simd_becnhmarking::b_spline;
+use rust_simd_benchmarking::b_spline;
 
 // define the parameters for the B-spline we'll use in each benchmark
 fn get_test_parameters() -> (usize, Vec<f64>, Vec<f64>, Vec<f64>) {
@@ -207,17 +211,9 @@ fn bench_recursive_method(b: &mut Bencher) {
 We're making the spline much larger than the examples we went over above - degree 4 with 16 basis functions and 100 different `x` values. We want the calculations to take long enough that the benchmarker can get an accurate read - even when we speed everything up later. We also need the number of knots, basis functions, and input values to be large enough that we have headroom to optimize - this will make more sense as we explore different vectorization strategies. For now, let's see how long this benchmark takes
 
 ```zsh
->$ cargo bench -q
+$> cargo bench -q
 
-running 4 tests
-iiii
-test result: ok. 0 passed; 0 failed; 4 ignored; 0 measured; 0 filtered out; finished in 0.00s
-
-
-running 0 tests
-
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-
+...
 
 running 1 test
 test bench_recursive_method ... bench:     706,262.10 ns/iter (+/- 81,587.11)
@@ -227,7 +223,7 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 1 measured; 0 filtered out; fini
 
 Looks like evaluating all 100 inputs takes about 800k nanoseconds, or roughly 0.8 milliseconds. Cool, we have a baseline. Now we can start optimizing
 
-From this point on, as we explore different vectorization strategies, there are lots of little details that a competant programmer might overlook at first, but which can have a large impact on performance - ineffecient memory allocation, redundant looping, etc. I went through rigamaroll of write-profile-optimize when I first wrote these operations as part of my [KAN Library](https://crates.io/crates/fekan). I will quietly include the results of all those lessons-learned in the code I show going forward, because I want each iteration of the algorithm to be the best version of itself it can be.
+From this point on, as we explore different vectorization strategies, there are lots of little details that a competent programmer might overlook at first, but which can have a large impact on performance - inefficient memory allocation, redundant looping, etc. I went through rigamarole of write-profile-optimize when I first wrote these operations as part of my [KAN Library](https://crates.io/crates/fekan). I will quietly include the results of all those lessons-learned in the code I show going forward, because I want each iteration of the algorithm to be the best version of itself it can be.
 
 # Optimization #1: From Recursion to Looping
 
@@ -249,11 +245,14 @@ pub fn b_spline_loop_over_basis(
     knots: &[f64],
     degree: usize,
 ) -> Vec<f64> {
+    // setup our data structures to hold the intermediate and final results
     let mut outputs = Vec::with_capacity(inputs.len());
     let mut basis_activations = vec![0.0; knots.len() - 1];
-    // fill the basis activations vec with the valued of the degree-0 basis functions
-    for x in inputs{
-        let x = *x; 
+
+    for x in inputs {
+        let x = *x;
+
+        // For the current value of `x`, fill the basis activations vec with the value of the degree-0 basis functions
         for i in 0..knots.len() - 1 {
             if knots[i] <= x && x < knots[i + 1] {
                 basis_activations[i] = 1.0;
@@ -261,7 +260,9 @@ pub fn b_spline_loop_over_basis(
                 basis_activations[i] = 0.0;
             }
         }
-
+        /* For each degree k, compute the higher degree basis functions, 
+         using the value of the "child" basis functions that were stored in the previous iteration,
+         overwriting the child values once they're no longer needed */
         for k in 1..=degree {
             for i in 0..knots.len() - k - 1 {
                 let left_coefficient = (x - knots[i]) / (knots[i + k] - knots[i]);
@@ -275,6 +276,7 @@ pub fn b_spline_loop_over_basis(
             }
         }
 
+        // Finally, compute the ultimate value of this B-Spline at `x` by multiplying each basis function by the corresponding control point, and summing the results
         let mut result = 0.0;
         for i in 0..control_points.len() {
             result += control_points[i] * basis_activations[i];
@@ -285,7 +287,7 @@ pub fn b_spline_loop_over_basis(
 }
 ```
 
-Here's our first optimized spline calculator. Now that we're not recursing, there's no need for a separate basis function - we do all our calculations in this one spline function. We're also taking in a whole batch of input values to be processed at once, instead of only taking one at a time, for efficieny reasons that will be explained in a moment.
+Here's our first optimized spline calculator. Now that we're not recursing, there's no need for a separate basis function - we do all our calculations in this one spline function. We're also taking in a whole batch of input values to be processed at once, instead of only taking one at a time, for efficiency reasons that will be explained in a moment.
 
 In order to calculate the final value of the spline at point `x`, we need the value of each of our top level basis functions. To start, in that `0..knots.len() - 1` loop, we calculate the value of each degree-0 basis functions and store the results in a vector. 
 
@@ -295,7 +297,7 @@ Next, the `1..=degree` loop is where the magic happens. At each layer `k`, start
 
 ![degree-3 pyramid of basis functions with all but the bottom layer greyed out. There's a red box around the first basis function in the second layer](generated_images/basis_pyramid/calculating_B_0_3.png)
 
-Then we write `B_0_1` to the `0th` position in our vector, overwritting `B_0_0`, which is no longer needed. After that we move on to calculating `B_1_1`
+Then we write `B_0_1` to the `0th` position in our vector, overwriting `B_0_0`, which is no longer needed. After that we move on to calculating `B_1_1`
 
 ![degree-3 pyramid of basis functions. The first basis function in the second layer is filled in, as are the second-through-last basis functions in the bottom layer. The rest are greyed out. There's a red box around the second basis function in the second layer](generated_images/basis_pyramid/calculating_B_1_3.png)
 
@@ -333,16 +335,16 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 2 measured; 0 filtered out; fini
 (Ignore the changes in the time for the recursive method benchmark - the benchmarker is imperfect, and there will always be some minor variation between runs)
 
 This method takes about 64k nanoseconds. Looks like we got over a 10x speedup just by moving from recursion to looping! That speedup is coming, in varying degrees from three places:
-1. Reduced overhead. Besides the work done within a function, there's a certain amount of work required simply to call a functiona and return from it. Our recursive method had a lot of function calls - now we have only one
+1. Reduced overhead. Besides the work done within a function, there's a certain amount of work required simply to call a function and return from it. Our recursive method had a lot of function calls - now we have only one
 2. Reusing calculated basis values. Go back and look at our pyramid of basis functions; each basis function `B_i_k` is depended on by two other basis functions - `B_i-1_k+1` and `B_i_k+1`. In the recursive method, we'd calculate `B_i_k` once while calculating its first dependent, and again when calculating its second dependent. Now that we're storing the results of each basis function calculation in our vector, we only need to calculate each one once
-3. **Auto-vectorization**. In recursive mode, the compiler was limited in what it could assume about our code, so it was forced to be conservative in how it optimizied and wrote assembly to do exactly what we described and nothing more - read a few values, multiply and add them together, and give a single value back. Now that we're working a loop, the compiler is able to recognize that we're walking a vector and performing the same operation at each step, and do things smarter: the compiler is generating assembly with SIMD operations. While our Rust code says "for each index 0..n, read a few values, multiply and add them together, and store the single result", the assembly generated by the compiler now says "for every chunk of indexes [0..i]...[n-i..n], read several chunks of values, multiply and add the chunks together, and store the several results all at once". We're getting vectorization for free, just by writing code that's easier for the compiler to understand!
+3. **Auto-vectorization**. In recursive mode, the compiler was limited in what it could assume about our code, so it was forced to be conservative in how it optimized and wrote assembly to do exactly what we described and nothing more - read a few values, multiply and add them together, and give a single value back. Now that we're working a loop, the compiler is able to recognize that we're walking a vector and performing the same operation at each step, and do things smarter: the compiler is generating assembly with SIMD operations. While our Rust code says "for each index 0..n, read a few values, multiply and add them together, and store the single result", the assembly generated by the compiler now says "for every chunk of indexes [0..i]...[n-i..n], read several chunks of values, multiply and add the chunks together, and store the several results all at once". We're getting vectorization for free, just by writing code that's easier for the compiler to understand!
 
 
 # Optimization #2: Rust's Portable SIMD Crate
 
 Now we'll start introducing SIMD operations using Rust's [portable SIMD module](https://doc.rust-lang.org/std/simd/index.html). 
 
-Note for those following along with their own code at home: using `std::simd` requires addings the `#![feature(portable_simd)]` flag at the top of our library and compiling with the nightly toolchain, instead of the default stable release. You can install the `nightly` toolchain using [rustup] (https://www.rust-lang.org/tools/install) with `rustup toolchain install nightly`, and set it as the default toolchain for your project by calling `rustup override set nightly` from within your project directory
+Note for those following along with their own code at home: using `std::simd` requires adding the `#![feature(portable_simd)]` flag at the top of our library and compiling with the nightly toolchain, instead of the default stable release. You can install the `nightly` toolchain using [rustup] (https://www.rust-lang.org/tools/install) with `rustup toolchain install nightly`, and set it as the default toolchain for your project by calling `rustup override set nightly` from within your project directory
 
 Below is our B-spline calculation function using SIMD operations. It calculates everything the same way as our looping method, but uses explicit SIMD calls to operate on multiple elements at the same time
 
@@ -476,13 +478,13 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 3 measured; 0 filtered out; fini
 ```
 we went from 64k nanoseconds to 56k nanoseconds, or about a 1.15x speedup. That's not nothing, but it's not great either. It's a little faster, suggesting that writing out the SIMD operations explicitly did in fact help, but we were definitely hoping for more... Let's take a look under the hood at the assembly, and make sure we're getting the SIMD operations we expect. 
 
-There are a lot of tools available to inspect assembly - for this investigation I used [ghidra](https://ghidra-sre.org). Let's see what our `k in 1..=degree` loop looks like once it's compiled
+There are a lot of tools available to inspect assembly - for this investigation I used [ghidra](https://ghidra-sre.org). Let's see what our `k in 1..=degree` loop looks like once it's compiled.
 
 ![The k>=1 basis calculation loop, compiled with `cargo build -r`](images/portable_first_look.png)
 
-On the left we have the main workhorse loop of our spline calculations, and on the right is a portion of the assembly code for that loop. One thing jumps out immediately: **we're only using 128-bit SIMD operations, instead of the expected 512-bit**. In [x86 assembly SIMD operations](https://en.wikipedia.org/wiki/Advanced_Vector_Extensions), the `XMM` mneumonic is used to refer to 128-bit registers; `YMM` refers to 256-bit registers, and `ZMM` refers to 512-bit registers. 
+On the left we have the main workhorse loop of our spline calculations, and on the right is a portion of the assembly code for that loop. We don't need to go through the assembly in detail, but one thing jumps out immediately: **we're only using 128-bit SIMD operations, instead of the expected 512-bit**. In [x86 assembly SIMD operations](https://en.wikipedia.org/wiki/Advanced_Vector_Extensions), the `XMM` mnemonic is used to refer to 128-bit registers; `YMM` refers to 256-bit registers, and `ZMM` refers to 512-bit registers. From this we can conclude that the compiler only generated assembly code to utilize the processor's 128-bit SIMD capabilities, and did not generate assembly code to use the processor's full 512-bit SIMD capabilities.
 
-In our code, we set the constant `SIMD_WIDTH = 8`, which is then passed to the Rust SIMD code to control how many values get packed together. Since our code says to pack together 8 64-bit values, and 8x64=512, we'd expect to see `ZMM` littered throughout our assembly, but it's missing. Since we see `XMM` throughout, we can deduce that the code is only using 128-bit operations
+In Rust's portable SIMD module, it's incumbent on the programmer to denote explicitly how "wide" of SIMD operations they want to use - do you want to operate on 2 values simultaneously, or 4, or 8? In our code we define the constant `SIMD_WIDTH`, which we set equal to `8` and use to tell the Rust SIMD code how many values we want to pack together. Since our code says to pack together 8 values, and we're working with 64-bit floats, and 8 x 64 = 512, we'd expect to see `ZMM` littered throughout our assembly. But it's missing.
 
 It turns out, this is a feature, not a bug. Recall that we're using the Rust's **portable** SIMD module - by design, if the CPU for which we're compiling can't handle any of the SIMD operations we've requested, the compiler will replace them with operations the CPU *can* handle. Even though [most modern x86 CPUs](https://en.wikipedia.org/wiki/AVX-512#CPUs_with_AVX-512) have 512-bit registers, not every x86 CPU in existence has the circuitry to perform 512-bit operations, and so by default the rust compiler will assume 512-bit operations aren't available. To prove to ourselves this is true, we can get `rustc` (the rust compiler) to tell us what sort of machine it's compiling for, and what CPU features it believes are available
 
@@ -496,7 +498,7 @@ target_feature="sse2"
 target_feature="x87"
 ```
 
-Despite the fact that I'm running on an [Intel 4th gen Xeon](https://aws.amazon.com/ec2/instance-types/c7i/) processor, which [absolutely has](https://en.wikipedia.org/wiki/Sapphire_Rapids) the AVX-512 feature (and thus 512-bit capabilities), the compiler is targeting a generic x86 CPU, and believes it can only use up to SSE and SSE2 feature sets (which explains the `XMM` registers we saw in the assembly code). In order to use the full feature set of our processor, we need to tell the compiler specifically what sort of processer it ought to compile for. We do this with the [`target-cpu` flag](https://doc.rust-lang.org/rustc/codegen-options/index.html#target-cpu). 
+Despite the fact that I'm running on an [Intel 4th gen Xeon](https://aws.amazon.com/ec2/instance-types/c7i/) processor, which [absolutely has](https://en.wikipedia.org/wiki/Sapphire_Rapids) the AVX-512 feature (and thus 512-bit capabilities), the compiler is targeting a generic x86 CPU, and believes it can only use up to SSE and SSE2 feature sets (which explains the `XMM` registers we saw in the assembly code). In order to use the full feature set of our processor, we need to tell the compiler specifically what sort of processor it ought to compile for. We do this with the [`target-cpu` flag](https://doc.rust-lang.org/rustc/codegen-options/index.html#target-cpu). 
 
 The CPU architecture for our 4th gen Xeon is called Sapphire Rapids; let's ask the compiler what features it thinks a Sapphire Rapids CPU has.
 
@@ -529,12 +531,12 @@ target_feature="ssse3"
 ...
 ```
 
-The compiler knows that a Sapphire Rapids CPU can handle the full range of AVX-512 operations, so we just need to tell the compiler that it should in fact compile for Sapphire Rapids, by passing `-Ctarget-cpu=sapphirerapids` in when we compiled (you can also use `-Ctarget-cpu=native` to tell the compiler "target whatever CPU you're currently on". I'll stick with the former throught this text for clarity). We need pass the flag to the compiler through the `RUSTFLAGS` environment variable since we're calling `cargo` instead of calling `rustc` directly. 
+The compiler knows that a Sapphire Rapids CPU can handle the full range of AVX-512 operations, so we just need to tell the compiler that it should in fact compile for Sapphire Rapids, by passing `-Ctarget-cpu=sapphirerapids` in when we compiled (you can also use `-Ctarget-cpu=native` to tell the compiler "target whatever CPU you're currently on". I'll stick with the former throughout this text for clarity). We need pass the flag to the compiler through the `RUSTFLAGS` environment variable since we're calling `cargo` instead of calling `rustc` directly. 
 
 Let's recompile our code and take another look in Ghidra
 ![the k>=1 basis calculation loop, compiled with `RUSTFLAGS="-C target-cpu=sapphirerapids" cargo build -r`](images/portable_target_cpu.png)
 
-*Now* we see the `ZMM` register usage we expect! We've succesfully convinced the compiler to take full advantage of the 512-bit circuitry present in our CPU. Since we've 4x'd the size of the SIMD operations used by our program (moving from 128-bit `XMM` registers to 512-bit `ZMM` registers), we should expect close to a 4x speedup!
+*Now* we see the `ZMM` register usage we expect! We've successfully convinced the compiler to take full advantage of the 512-bit circuitry present in our CPU. Since we've 4x'd the size of the SIMD operations used by our program (moving from 128-bit `XMM` registers to 512-bit `ZMM` registers), we should expect close to a 4x speedup!
 
 ```zsh
 $> RUSTFLAGS="-Ctarget-cpu=sapphirerapids" cargo bench -q
@@ -559,17 +561,12 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 3 measured; 0 filtered out; fini
 
 We got... no speedup? Not only that, it's actually a little bit **slower**. This is quite counter-intuitive, and deserves additional investigation. Let's go through some reasons we might see this performance non-change, and try and rule out as many as we can.
 
----------------
-**A note, in the interest of full disclosure:** the following investigation was originally written as a research log as I searched for answers myself, and I intended to present it as such. However, it took days of hair-pulling research and experimentation and quickly devolved into a painstaking examination of the details of CPU architecture, which is [complicated]. [really], [really] [complicated]. So, for the sake of this post the text that follows has been revised down to highlight the key conclusions without getting sucked down any deep, dark rabbit-holes...
-
-If you have any questions about what happened behind the scenes, feel free to reach out!
-
----------------
-
 Broadly speaking, there are three things that could be going wrong:
-1. Cold SIMD code. It could be that we improved part of the program that's only a small portion of the total runtime
+1. Cold SIMD code. A portion of code is said to be "cold" if it's used infrequently during the course of normal operations. It could be that we improved part of the program that only accounts for a small portion of the total runtime
 2. CPU downclocking. The CPU could be slowing itself down to help deal with the extra heat generated by 512-bit operations, which it turns out [is a thing that happens](https://en.wikipedia.org/wiki/Advanced_Vector_Extensions#Downclocking)
-3. CPU Bottlenecking. We were able to get our code do more calculations with fewer instructions, but we hit a bottleneck somewhere limiting how fast we can get through instructions
+3. CPU Bottleneck-ing. We were able to get our code do more calculations with fewer instructions, but we hit a bottleneck somewhere limiting how fast we can get through instructions
+
+The next few sections investigate our lackluster SIMD performance and get pretty in the weeds (and spoiler alert: we only ever get to a partial explanation). Those uninterested in walking through CPU internals and how they affect performance, and who are satisfied with the answer "Moving from 128-bit operations to 512-bit operations doesn't always produce the speedup you're expecting" can safely skip over the next few sections and go to [Optimization #3](#optimization-3-x86-intrinsics)
 
 ## SIMD Slowdown Hypothesis 1: Cold Code
 
@@ -596,15 +593,7 @@ We increased the `spline_size` value - which controls the number of basis functi
 ```zsh
 $> cargo bench -q
 
-running 4 tests
-iiii
-test result: ok. 0 passed; 0 failed; 4 ignored; 0 measured; 0 filtered out; finished in 0.00s
-
-
-running 0 tests
-
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-
+...
 
 running 3 tests
 test bench_portable_simd_method ... bench:     476,557.90 ns/iter (+/- 17,461.56)
@@ -619,15 +608,7 @@ And now, including AVX-512 operations:
 ```zsh
 $> RUSTFLAGS="-Ctarget-cpu=sapphirerapids" cargo bench -q
 
-running 4 tests
-iiii
-test result: ok. 0 passed; 0 failed; 4 ignored; 0 measured; 0 filtered out; finished in 0.00s
-
-
-running 0 tests
-
-test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
-
+...
 
 running 3 tests
 test bench_portable_simd_method ... bench:     470,703.35 ns/iter (+/- 8,116.68)
@@ -639,19 +620,19 @@ test result: ok. 0 passed; 0 failed; 0 ignored; 3 measured; 0 filtered out; fini
 
 From **477k +/- 17k** to **471k +/- 8k**. There's a *bit* of a difference, but within the margin of error. Certainly not the 4x speed increase we were expecting. 
 
-**Conclusion: The dissapointing performance is not caused by cold SIMD loops**
+**Conclusion: The disappointing performance is not caused by cold SIMD loops.** One hypothesis down, two to go!
 
 ## SIMD Slowdown Hypothesis 2: Dastardly Downclocking
 
-One interesting fact I was surprised to learn when I started SIMD programming: CPUs will reduce their clockspeed for [programs](https://blog.cloudflare.com/on-the-dangers-of-intels-frequency-scaling/) with AVX instructions. Since these instructions operate on more data at once, they consume more power, and thus generate more heat-per-unit-time than the processor usually has to handle; it makes sence the processor might need to slow down in response.
+One interesting fact I was surprised to learn when I started SIMD programming: CPUs will reduce their clock speed for [programs](https://blog.cloudflare.com/on-the-dangers-of-intels-frequency-scaling/) with AVX instructions. Since these instructions operate on more data at once, they consume more power, and thus generate more heat-per-unit-time than the processor usually has to handle; it makes sense the processor might need to slow down in response.
 
-Now, this probably isn't the problem: downclocking will most hurt programs that spend only a little bit of time doing AVX-512 operations and a lot of time doing regular scalar operations, which would take the hit from the slower clock speed. Since we just showed that our problem isn't too little time spent in the SIMD loop, we're probably not hurting from reduced clockspeed. Nonetheless, let's rule try and rule it out.
+Now, this probably isn't the problem: downclocking will most hurt programs that spend only a little bit of time doing AVX-512 operations and a lot of time doing regular scalar operations, which would take the hit from the slower clock speed. Since we just showed that our problem isn't too little time spent in the SIMD loop, we're probably not hurting from reduced clock speed. Nonetheless, let's rule try and rule it out.
 
-Turns out this hypothesis is really easy to test. We'll use a linux built-in tool [perf](https://man7.org/linux/man-pages/man1/perf.1.html) - specifically [perf-stat](https://man7.org/linux/man-pages/man1/perf-stat.1.html) - to check the clockspeed for our two different versions. 
+Turns out this hypothesis is really easy to test. We'll use a linux built-in tool [perf](https://man7.org/linux/man-pages/man1/perf.1.html) - specifically [perf-stat](https://man7.org/linux/man-pages/man1/perf-stat.1.html) - to check the clock speed for our two different versions. 
 
 We're going to add a simple `main` function to our code so we can run it on its own, instead of running it as part of a benchmark. Since we're measuring with `perf` instead of `cargo bench`, this will help us isolate and measure *only* the code we're testing, and keep any code added by the benchmarking infrastructure from muddying our measurements.
 
-Here's the `main` function, for refence. It does exactly what the benchmark was doing: calculating different basis values for each of the different inputs. We're increasing the number of calculations done to ensure the code runs long enough for perf to get a good measurement
+Here's the `main` function, for reference. It does exactly what the benchmark was doing: calculating different basis values for each of the different inputs. We're increasing the number of calculations done to ensure the code runs long enough for perf to get a good measurement
 ```rust
 pub fn main() {
     let spline_size = 2000;
@@ -665,19 +646,19 @@ pub fn main() {
         .map(|x| x as f64 / input_size as f64)
         .collect::<Vec<_>>();
     let _ =
-        rust_simd_becnhmarking::b_spline_portable_simd(&inputs, &control_points, &knots, degree);
+        rust_simd_benchmarking::b_spline_portable_simd(&inputs, &control_points, &knots, degree);
 }
 ```
 
-Ok, let's see if the clockspeed changes when we move from using the default 128-bit operations to the advanced 512-bit operations. default version first:
+Ok, let's see if the clock speed changes when we move from using the default 128-bit operations to the advanced 512-bit operations. We'll use perf to count the number of clock-cycles and the amount of time our program took to complete, and perf will helpfully give us the clock speed in GHz. If downclocking is our culprit, we expect to see a reduction in clock speed from our default version to our AVX-512 version. Let's look - default version is first:
 
 ```zsh
 $> cargo build -r
-   Compiling rust_simd_becnhmarking v0.1.0 (/home/ec2-user/spline_simd_benchmarking)
+   Compiling rust_simd_benchmarking v0.1.0 (/home/ec2-user/spline_simd_benchmarking)
     Finished `release` profile [optimized + debuginfo] target(s) in 0.14s
-$> perf stat -e cycles,cpu-clock target/release/rust_simd_becnhmarking
+$> perf stat -e cycles,cpu-clock target/release/rust_simd_benchmarking
 
- Performance counter stats for 'target/release/rust_simd_becnhmarking':
+ Performance counter stats for 'target/release/rust_simd_benchmarking':
 
           72700092      cycles:u                         #    3.329 GHz                    
              21.84 msec cpu-clock:u                      #    0.157 CPUs utilized          
@@ -687,15 +668,13 @@ $> perf stat -e cycles,cpu-clock target/release/rust_simd_becnhmarking
        0.092568000 seconds user
        0.046332000 seconds sys
 
-```
-Looks like the average clock speed was 3.329 GHz. Does that decrease when we introduce AVX-512 operations?
-```zsh
-$> RUSTFLAGS="-Ctarget-cpu=sapphirerapids" cargo build -r
-   Compiling rust_simd_becnhmarking v0.1.0 (/home/ec2-user/spline_simd_benchmarking)
-    Finished `release` profile [optimized + debuginfo] target(s) in 0.13s
-$> perf stat -e cycles,cpu-clock target/release/rust_simd_becnhmarking
 
- Performance counter stats for 'target/release/rust_simd_becnhmarking':
+$> RUSTFLAGS="-Ctarget-cpu=sapphirerapids" cargo build -r
+   Compiling rust_simd_benchmarking v0.1.0 (/home/ec2-user/spline_simd_benchmarking)
+    Finished `release` profile [optimized + debuginfo] target(s) in 0.13s
+$> perf stat -e cycles,cpu-clock target/release/rust_simd_benchmarking
+
+ Performance counter stats for 'target/release/rust_simd_benchmarking':
 
           72179853      cycles:u                         #    3.239 GHz                    
              22.29 msec cpu-clock:u                      #    0.160 CPUs utilized          
@@ -705,24 +684,20 @@ $> perf stat -e cycles,cpu-clock target/release/rust_simd_becnhmarking
        0.092915000 seconds user
        0.046547000 seconds sys
 ```
-Not by any significant amount. The average clock speed is now 3.239 GHz - that's 3% slower, certainly not enough to counteract the 4x gain we expected to get from AVX-512.
+The average clock speed for the default version is 3.329 GHz, and for the AVX-512 version it's 3.239 GHX. That's 3% slower, which is certainly not enough to counteract the 4x gain we expected to get from AVX-512.
 
-**Conclusion: the dissapointing performance is not due to CPU downclocking**
+**Conclusion: the disappointing performance is not due to CPU downclocking**
 
 ## SIMD Slowdown Hypothesis 3: Bad Bottleneck
 
-That leaves bottlenecks. Somewhere, deep in the bowels of our processor, moving from 128-bit to 512-bit operations is causing us to get "stuck" waiting on *something*. 
-1. Memory. It could be that the main thing holding our program back from running faster isn't the speed at which we can calculate basis values, but the speed at which we can read data from and write data to memory
-2. [CPU superscaling](https://www.geeksforgeeks.org/superscalar-architecture/). As mentioned above, CPU internals are complicated, and modern CPUs already do a lot of work under the hood to execute operations in parallel as much as possible. Ironically, our attempts to explicitly parallelize our code might be interfering with efforts the CPU was already making to parallelize it for us.
-
-First, a brief sanity check. The whole point of adding SIMD operations is to complete the same amount of work in fewer steps. Let's make sure we're actually doing fewer *operations*, even if the total *time* hasn't changed
+That just leaves bottlenecks as our remaining hypothesis. First, a brief sanity check. The whole point of adding SIMD operations is to complete the same amount of work in fewer steps. Let's make sure we're actually doing fewer *operations*, even if the total *time* hasn't changed
 
 ```zsh
 $> cargo build -r
     Finished `release` profile [optimized + debuginfo] target(s) in 0.00s
-$> perf stat -e cycles,instructions target/release/rust_simd_becnhmarking
+$> perf stat -e cycles,instructions target/release/rust_simd_benchmarking
 
- Performance counter stats for 'target/release/rust_simd_becnhmarking':
+ Performance counter stats for 'target/release/rust_simd_benchmarking':
 
           73051145      cycles:u                                                           
          250509449      instructions:u                   #    3.43  insn per cycle         
@@ -735,9 +710,9 @@ $> perf stat -e cycles,instructions target/release/rust_simd_becnhmarking
 
 $> RUSTFLAGS="-Ctarget-cpu=sapphirerapids" cargo build -r
     Finished `release` profile [optimized + debuginfo] target(s) in 0.00s
-$> perf stat -e cycles,instructions target/release/rust_simd_becnhmarking
+$> perf stat -e cycles,instructions target/release/rust_simd_benchmarking
 
- Performance counter stats for 'target/release/rust_simd_becnhmarking':
+ Performance counter stats for 'target/release/rust_simd_benchmarking':
 
           72016963      cycles:u                                                           
          109372993      instructions:u                   #    1.52  insn per cycle         
@@ -748,29 +723,34 @@ $> perf stat -e cycles,instructions target/release/rust_simd_becnhmarking
        0.046416000 seconds sys
 ```
 
-In our default mode using 128-bit operations, our program takes 250M instructions. When we upgrade to 512-bit operations, it takes 109M instructions. So, we **ARE**, in fact, completing our work in fewer instructions.  It's more than the 1/4-as-many as one might expect moving from 128-bit to 512-bit operations (128 * 4 = 512), but since plent of the operations aren't vector operations and don't actually change between our default and advanced versions, it makes sense that we wouldn't see a full 75% reduction. We revise our "expected" speedup from 4x down to ~2.3x. That's still a significant speedup that we're not seeing, so let's find out where it went.
+In our default mode using 128-bit operations, our program takes 250M instructions. When we upgrade to 512-bit operations, it takes 109M instructions. So, we **ARE**, in fact, completing our work in fewer instructions.  It's more than the 1/4-as-many as one might expect moving from 128-bit to 512-bit operations (128 * 4 = 512), but since plenty of the operations aren't vector operations and don't actually change between our default and advanced versions, it makes sense that we wouldn't see a full 75% reduction. We revise our "expected" speedup from 4x down to ~2.3x. That's still a significant speedup that we're not seeing, so let's find out where it went.
 
-We can also see above that the average Instructions Per Cycle (IPC) drops from 3.43 to 1.52. So the default version requires 2.3x as many operations, but it also completes - oh would you look at that - 2.3x times as many instructions per cycle! Now it makes sense that our default and advanced versions took the same amount of time to complete our benchmarks, but it still doens't explain *why*.
+We can also see above that the average Instructions Per Cycle (IPC) drops from 3.43 to 1.52. So the default version requires 2.3x as many operations, but it also is able to process (oh would you look at that) 2.3x times as many instructions per cycle! It makes sense now that our default and advanced versions would take the same amount of time in our benchmarks - but it still doesn't explain *why*.
 
 (Off the top of my head, I would say this points to a CPU parallelism issue not a memory bottleneck; but, as I mentioned above, I'm writing this from the future where I already know the answer, so that may not be a fair 'prediction'.)
 
-<!-- We can use `perf` to narrow down our search by measure bound slots by system. In Intel parlance, a slot represents ["the hardware resources needed to process one uOp"](https://www.intel.com/content/www/us/en/docs/vtune-profiler/cookbook/2023-0/top-down-microarchitecture-analysis-method.html) - essentially just an opportunity to do useful work. So, we'll count
-* memory-bound slots: missed chances to do work due to waiting on data from memory
-* backend-bound slots: missed chances to do work because the circuitry needed to process the next instruction is still busy. This is a superscaling bottleneck as mentioned above
-* speculation-bound slots: chances to do work that had to be thrown away because the CPU made a wrong guess about which code path to take or data to pull
+Somewhere, deep in the bowels of our processor, moving from 128-bit to 512-bit operations is causing us to get "stuck" waiting on something. Now for exactly what that *something* is, we have [plenty of options](images/Golden_Cove.png). Broadly speaking, we can divide the possible bottlenecks into two categories, which will help us search for evidence: memory bottlenecks and [instruction-level parallelism](https://en.wikipedia.org/wiki/Instruction-level_parallelism) (ILP) bottlenecks.
 
-I'd love to include a measure for frontend-bound slots to measure bottlenecks in the fetching and decoding of instructions, but for some reason I can't get those to work on my machine. If none of the above measure show any difference between versions, we can just assume that the problem is in the [fetch and decode steps of the pipeline](https://www.geeksforgeeks.org/computer-organization-and-architecture-pipelining-set-1-execution-stages-and-throughput/) -->
+Memory bottlenecks: At the end of the day, how fast our processor can crunch numbers is limited by how fast it can pull those numbers from memory. CPU's have [multiple levels of caches](https://www.geeksforgeeks.org/multilevel-cache-organisation/) in order to keep needed data close by and reduce those bottlenecks, but even those caches only go so fast (and can only hold so much data). We may have improved the speed at which our program crunches numbers so much we've run up against the speed at which it can get new numbers to crunch. We'll use perf to measure the number of cycles our program spends waiting on data from different levels of the cache to see if that's what's holding us back 
 
-In a perfect world, I would use stats from `perf`'s Topdown Microarchitecture Analysis (TMA) family events, because they cut right to the heart of the matter. I would *like* to use measure `tma_core_bound`, `tma_memory_bound`, and `tma_frontend_bound` events to count the number of "slots" - essentially, the number of opportunities to do useful work somewhere within the processing pipeline - wasted due to bottlenecks in computation, memory access, and instruction fetch and decoding, respectively. *However*, because the universe is cruel and unjust, `perf stat` refueses to recognize those events, despite the fact that `perf lists` claims they are valid.
+Instruction-level Parallelism: CPU's already do a lot of work under the hood to maximize the number of completed instructions per cycle.
+   1. [Instruction Pipelineing](https://en.wikipedia.org/wiki/Instruction_pipelining) allows parts of the CPU that handle the beginning, middle, and end of processing an instruction are all in use at once by starting work on the current instruction before work the previous instruction has totally finished. Imagine a conveyor belt in a car factory, with different stations for welding the frame, attaching the body, and painting; You complete more cars faster if you keep each station busy, rather than waiting for one car to be totally finished before starting the next.
+   2. [CPU Superscaling](https://www.geeksforgeeks.org/superscalar-architecture/) let's the CPU work on multiple instructions at the same time, even if they're all in the same stage of the instruction pipeline. Imagine a choosy tollbooth: multiple lanes let multiple cars pass at the same time instead of waiting on each other; The catch is that each tollbooth can only take certain kinds of vehicles - that's the "choosy" part. CPUs distribute the circuitry that lets execute instructions - add numbers together, compare numbers, request data from memory etc. - across multiple independent [execution units](https://en.wikipedia.org/wiki/Execution_unit) (EU), but each EU can only do a few different tasks. It may be that by moving to AVX-512 operations, our CPU instructions are now being routed to fewer EUs and backing up behind each other. Sort of like if we replaced all the different cars going through different lanes of our choosy tollbooth with a few busses that can all only go through one lane
+   3. [Out of Order Execution](https://en.wikipedia.org/wiki/Out-of-order_execution#Basic_concept) enables later instructions that don't depend on the outcome of earlier instructions to go ahead and skip the line, instead of waiting. Imagine a waiting room full of patients filling out paperwork to see a doctor: you'll be able to help patients faster if you let them see a doctor as soon as they've completed their paperwork; if you insist the patients be seen in the order they came in, you may have several patients sitting and waiting on one particular patient who's slow with their paperwork
+So, it may be that moving to AVX-512 operations for better data-level parallelism - processing more data per CPU instruction - is interfering with the CPU's ability to provide instruction-level parallelism - processing more instructions per cycle. Maybe our instructions tend to be more depended on the ones that came before, interfering with pipelining or out-of-order execution, or maybe the AVX-512 instructions are all being routed the same few EUs, preventing us from taking advantage of superscaling.
+
+While we're generally capable of determining *if* we have an instruction-level parallelism problem, finding the exact cause would be difficult: the systems that provide ILP are so complex, a full discussion of each of them could literally [fill multiple college courses](https://student.mit.edu/catalog/m6a.html#6.1920). To make life even more difficult, my ability to check for ILP problems with `perf` is... currently inhibited. 
+
+In a perfect world, I would use stats from `perf`'s Topdown Microarchitecture Analysis (TMA) family events; The TMA events are "smarter" counts that are synthesized from a number of different statistics and cut right to the heart of the matter. I would *like* to use measure `tma_core_bound`, `tma_memory_bound`, and `tma_frontend_bound` events to count the number of times the CPU wasted an opportunity to do useful work computation, memory access, and instruction fetch and decoding, respectively. With those measurements, we could immediately see if our bottleneck was happening reading and writing from memory (`tma_memory_bound`); or an ILP problem, either pulling new instructions into the CPU (`tma_frontend_bound`) or processing instructions within the CPU (`tma_core_bound`). *However*, because the universe is cruel and unjust, `perf stat` refuses to recognize those events, despite the fact that `perf lists` claims they are valid.
 
 So! We'll have to pull back the covers and look at some more granular data to figure out where the bottleneck is! We'll be measuring the number of "stalls" that occur for one reason or another. A "stall" is counted every time a CPU instruction was prevented from moving forward in the processing pipeline because a resource it needed (data, available circuitry, etc.) was unavailable.
 
 First, let's check for memory bottlenecks. We'll check the number of stalls due to cache misses and see how long our program has to sit and wait for data from a lower tier of memory. Every L1d stall represents an instruction that couldn't proceed that CPU cycle because the data it needed wasn't in the L1 cache and had to be retrieved from the L2 cache; L2 stalls represent having to wait for data from the L3 cache; and L3 stalls represent having to wait for data from memory
 
 ```zsh
-$> perf stat -e cycles,instructions,cycle_activity.stalls_total,memory_activity.stalls_l1d_miss,memory_activity.stalls_l2_miss,memory_activity.stalls_l3_miss target/release/rust_simd_becnhmarking
+$> perf stat -e cycles,instructions,cycle_activity.stalls_total,memory_activity.stalls_l1d_miss,memory_activity.stalls_l2_miss,memory_activity.stalls_l3_miss target/release/rust_simd_benchmarking
 
- Performance counter stats for 'target/release/rust_simd_becnhmarking':
+ Performance counter stats for 'target/release/rust_simd_benchmarking':
 
           72678529      cycles:u                                                           
          250508875      instructions:u                   #    3.45  insn per cycle         
@@ -787,9 +767,9 @@ $> perf stat -e cycles,instructions,cycle_activity.stalls_total,memory_activity.
 
 $> RUSTFLAGS="-Ctarget-cpu=sapphirerapids" cargo build -r
     Finished `release` profile [optimized + debuginfo] target(s) in 0.02s
-$> perf stat -e cycles,instructions,cycle_activity.stalls_total,memory_activity.stalls_l1d_miss,memory_activity.stalls_l2_miss,memory_activity.stalls_l3_miss target/release/rust_simd_becnhmarking
+$> perf stat -e cycles,instructions,cycle_activity.stalls_total,memory_activity.stalls_l1d_miss,memory_activity.stalls_l2_miss,memory_activity.stalls_l3_miss target/release/rust_simd_benchmarking
 
- Performance counter stats for 'target/release/rust_simd_becnhmarking':
+ Performance counter stats for 'target/release/rust_simd_benchmarking':
 
           72073554      cycles:u                                                           
          109373036      instructions:u                   #    1.52  insn per cycle         
@@ -806,19 +786,16 @@ $> perf stat -e cycles,instructions,cycle_activity.stalls_total,memory_activity.
 
 Alright, we have zero L3 stalls. That makes some sense since we're only working with an amount of data significantly smaller than the [L3 cache can hold](https://www.tomshardware.com/news/intel-alder-lake-specifications-price-benchmarks-release-date). 
 
-Looks like memory stalls grow about 20% when we introduce AVX-512 operations, which might be cause for alarm, but we can see both that memory stalls are a small portion of the overall stalls and that total stalls grew *significantly* faster than memory stalls - 800% from the default to AVX-512 versions. Memory stalls actually decrease as a percentage of total stalls from 8% in the default version to 1% in the AVX-512 version. It's fair to say, then, that **memory bottlenecks are not the reason for the dissapointing AVX-512 performance**
+Looks like memory stalls grow about 20% when we introduce AVX-512 operations, which might be cause for alarm, but we can see both that memory stalls are a small portion of the overall stalls and that total stalls grew *significantly* faster than memory stalls - 800% from the default to AVX-512 versions. Memory stalls actually decrease as a percentage of total stalls from 8% in the default version to 1% in the AVX-512 version. It's fair to say, then, that **memory bottlenecks are not the reason for the disappointing AVX-512 performance**
 
-
-<!-- uops-dispatched-by-port and entropy data ommitted because it is unenlightening -->
-
-Let's take a look at how well each version of our program utilizes CPU superscaling by measuring how many execution ports the program tends to use
+Let's take a look at how well each version of our program utilizes CPU superscaling by measuring how many EUs each version of the program has in use, on average. The specific `perf` stats we'll use `exe_activity.x_ports_util`, which count how many cycles `x` execution ports were in use. For our purposes, you can consider "execution unit" and "execution port" synonymous. Our Golden Cove architecture actually has [12 execution ports](https://download.intel.com/newsroom/2021/client-computing/intel-architecture-day-2021-presentation.pdf#page=41) that could be used each cycle, but `perf` only has stats up to 4 in use at once. As best I can tell, `perf` is limited by the counters actually present in hardware, which are limited by cost/benefit trade-offs. We'll hope that counts of cycles with 5 or more execution ports in use are either included in `exe_activity.4_ports_util`, or are few enough to be insignificant
 
 ```zsh
 $> cargo build -r
     Finished `release` profile [optimized + debuginfo] target(s) in 0.00s
-$> perf stat -e cycles,instructions,exe_activity.exe_bound_0_ports,exe_activity.1_ports_util,exe_activity.2_ports_util,exe_activity.3_ports_util,exe_activity.4_ports_util target/release/rust_simd_becnhmarking
+$> perf stat -e cycles,instructions,exe_activity.exe_bound_0_ports,exe_activity.1_ports_util,exe_activity.2_ports_util,exe_activity.3_ports_util,exe_activity.4_ports_util target/release/rust_simd_benchmarking
 
- Performance counter stats for 'target/release/rust_simd_becnhmarking':
+ Performance counter stats for 'target/release/rust_simd_benchmarking':
 
           72831716      cycles:u                                                           
          250508690      instructions:u                   #    3.44  insn per cycle         
@@ -836,9 +813,9 @@ $> perf stat -e cycles,instructions,exe_activity.exe_bound_0_ports,exe_activity.
 
 $> RUSTFLAGS="-Ctarget-cpu=sapphirerapids" cargo build -r
     Finished `release` profile [optimized + debuginfo] target(s) in 0.00s
-$> perf stat -e cycles,instructions,exe_activity.exe_bound_0_ports,exe_activity.1_ports_util,exe_activity.2_ports_util,exe_activity.3_ports_util,exe_activity.4_ports_util target/release/rust_simd_becnhmarking
+$> perf stat -e cycles,instructions,exe_activity.exe_bound_0_ports,exe_activity.1_ports_util,exe_activity.2_ports_util,exe_activity.3_ports_util,exe_activity.4_ports_util target/release/rust_simd_benchmarking
 
- Performance counter stats for 'target/release/rust_simd_becnhmarking':
+ Performance counter stats for 'target/release/rust_simd_benchmarking':
 
           72110720      cycles:u                                                           
          109373138      instructions:u                   #    1.52  insn per cycle         
@@ -854,54 +831,12 @@ $> perf stat -e cycles,instructions,exe_activity.exe_bound_0_ports,exe_activity.
        0.048280000 seconds sys
 ```
 
-
-<!-- ```zsh
-$> cargo build -r
-    Finished `release` profile [optimized + debuginfo] target(s) in 0.00s
-$> perf stat -e cycles,instructions,uops_executed.cycles_ge_1,uops_executed.cycles_ge_2,uops_executed.cycles_ge_3,uops_executed.cycles_ge_4 target/release/rust_
-simd_becnhmarking
-
- Performance counter stats for 'target/release/rust_simd_becnhmarking':
-
-          74524523      cycles                                                             
-         251699836      instructions                     #    3.38  insn per cycle         
-          69343071      uops_executed.cycles_ge_1                                          
-          56273676      uops_executed.cycles_ge_2                                          
-          37302036      uops_executed.cycles_ge_3                                          
-          23523228      uops_executed.cycles_ge_4                                          
-
-       0.141097159 seconds time elapsed
-
-       0.105708000 seconds user
-       0.035296000 seconds sys
-
-
-$> RUSTFLAGS="-Ctarget-cpu=sapphirerapids" cargo build -r
-    Finished `release` profile [optimized + debuginfo] target(s) in 0.00s
-$> perf stat -e cycles,instructions,uops_executed.cycles_ge_1,uops_executed.cycles_ge_2,uops_executed.cycles_ge_3,uops_executed.cycles_ge_4 target/release/rust_simd_becnhmarking
-
- Performance counter stats for 'target/release/rust_simd_becnhmarking':
-
-          74178016      cycles                                                             
-         110599371      instructions                     #    1.49  insn per cycle         
-          46786404      uops_executed.cycles_ge_1                                          
-          27471803      uops_executed.cycles_ge_2                                          
-          12961907      uops_executed.cycles_ge_3                                          
-           4806266      uops_executed.cycles_ge_4                                          
-
-       0.145128185 seconds time elapsed
-
-       0.096651000 seconds user
-       0.048387000 seconds sys
-``` -->
-
 ![a graph showing the count of cycles that used a given number of execution ports](generated_images/port_utilization.png)
-<!-- ![a graph showing the count of cycles that executed at least the given number of micro-operations](generated_images/uops_executed.png) -->
 
-We see that the default version uses 2.41 execution units on average, while the AVX-512 version only uses 1.65. Another way to read that is "during the course of the program, the default version tended to be working on 2.41 operations at once, while the AVX-512 version only tended to be working on 1.65 operations at once".
+When graphed, it's obvious the AVX-512 version has reduced EU usage. We see that the default version uses 2.41 execution units on average, while the AVX-512 version only uses 1.65. Another way to read that is "during the course of the program, the default version tended to be working on 2.41 operations at once, while the AVX-512 version only tended to be working on 1.65 operations at once".
 
 Now, the astute reader will notice that we were trying to account for a missing 2.3x speedup, but the default version only averages 1.46x as many execution ports as the AVX-512 version. Clearly, we've only partially explained why we're not seeing a speedup but we're going to leave things here because: 
-* Finding the exact cause of bottlenecks would take a great deal more work, since there are [a number of places](https://commons.wikimedia.org/wiki/File:Golden_Cove.png) the CPU could get backed up, and probably require more specialized tools like [Intel's Vtune](https://www.intel.com/content/www/us/en/developer/tools/oneapi/vtune-profiler.html#gs.k48rbh)
+* Finding the exact cause of bottlenecks would take a great deal more work, since there are [a number of places](https://commons.wikimedia.org/wiki/File:Golden_Cove.png) the CPU could get backed up, and probably require more specialized tools like [Intel's VTune](https://www.intel.com/content/www/us/en/developer/tools/oneapi/vtune-profiler.html#gs.k48rbh)
 * Even if we knew the exact source of the bottleneck, it may not be something we can practically address in our code
 * We'd be getting well beyond the scope of this article, which is supposed to be comparing different methods of adding SIMD operations to code, not an extensive exploration of Intel microarchitecture
 
@@ -910,7 +845,7 @@ So, we're going to conclude our investigation of Rust's portable SIMD module, an
 
 Now, we can't say it's *never* useful to add data-parallelism with the Rust portable SIMD module, we can be certain it didn't help for our use case. Even so, you've now seen an example of how to add SIMD operations to code, benchmark, and troubleshoot issues. Next, we'll explore another way to add SIMD operations to our code and see if it gives better performance. It's unlikely, but sometimes [compilers get weird](https://x.com/rflaherty71/status/1894971059885219855) about how they translate high level code into assembly, so we never know for sure what we're going to get. It's worth a shot!
 
-# Optimization #2: x86 Intrinsics
+# Optimization #3: x86 Intrinsics
 
 Ok, now we're going to try rewriting our function using the x86 intrinsics provided by the [Rust arch module](https://doc.rust-lang.org/core/arch/index.html). Essentially, we're going to tell the compiler exactly which CPU instruction we want to use for our SIMD operations. This code is going to be even more verbose than the last version, but let's take a look at the new function, and then I'll explain what we're looking at
 
@@ -965,27 +900,27 @@ pub fn b_spline_x86_intrinsics(
                     let knots_i_plus_k_vec = _mm512_loadu_pd(&knots[i + k]);
                     let knots_i_plus_k_plus_1_vec = _mm512_loadu_pd(&knots[i + k + 1]);
 
-                    let left_cofficient_numerator_vec = _mm512_sub_pd(x_splat, knots_i_vec);
-                    let left_cofficient_denominator_vec =
+                    let left_coefficient_numerator_vec = _mm512_sub_pd(x_splat, knots_i_vec);
+                    let left_coefficient_denominator_vec =
                         _mm512_sub_pd(knots_i_plus_k_vec, knots_i_vec);
-                    let left_cofficient_vec = _mm512_div_pd(
-                        left_cofficient_numerator_vec,
-                        left_cofficient_denominator_vec,
+                    let left_coefficient_vec = _mm512_div_pd(
+                        left_coefficient_numerator_vec,
+                        left_coefficient_denominator_vec,
                     );
                     let left_recursion_vec = _mm512_loadu_pd(&basis_activations[i]);
 
-                    let right_cofficient_numerator_vec =
+                    let right_coefficient_numerator_vec =
                         _mm512_sub_pd(knots_i_plus_k_plus_1_vec, x_splat);
-                    let right_cofficient_denominator_vec =
+                    let right_coefficient_denominator_vec =
                         _mm512_sub_pd(knots_i_plus_k_plus_1_vec, knots_i_plus_1_vec);
-                    let right_cofficient_vec = _mm512_div_pd(
-                        right_cofficient_numerator_vec,
-                        right_cofficient_denominator_vec,
+                    let right_coefficient_vec = _mm512_div_pd(
+                        right_coefficient_numerator_vec,
+                        right_coefficient_denominator_vec,
                     );
                     let right_recursion_vec = _mm512_loadu_pd(&basis_activations[i + 1]);
 
-                    let left_val_vec = _mm512_mul_pd(left_cofficient_vec, left_recursion_vec);
-                    let right_val_vec = _mm512_mul_pd(right_cofficient_vec, right_recursion_vec);
+                    let left_val_vec = _mm512_mul_pd(left_coefficient_vec, left_recursion_vec);
+                    let right_val_vec = _mm512_mul_pd(right_coefficient_vec, right_recursion_vec);
 
                     let new_basis_activations_vec = _mm512_add_pd(left_val_vec, right_val_vec);
                     _mm512_storeu_pd(&mut basis_activations[i], new_basis_activations_vec);
@@ -1031,20 +966,23 @@ pub fn b_spline_x86_intrinsics(
 
 Our code gets even more verbose since we can't use pretty things like `a + b` or `a >= b` when working with our data anymore and instead have to use ugly function calls like `_mm512_add_pd(a, b)` and `_mm512_ge_pd(a, b)`
 
-All those `__mm512_*` functions are our x86 instrinsics; They each map directly to a specific assembly instruction provided by the AVX-512 feature. I've heard folks say one of the drawbacks to programming with Intel x86 intrinsics is how hard it makes it to read the code, but frankly I think it's pretty easy once you learn to break it down. Here's how to read the function calls:
+All those `__mm512_*` functions are our x86 intrinsics; They each map directly to a specific assembly instruction provided by the AVX-512 feature. I've heard folks say one of the drawbacks to programming with Intel x86 intrinsics is how hard it makes it to read the code, but frankly I think it's pretty easy once you learn to break it down. Here's how to read the function calls:
 * `_mm512` at the front means we're using 512-bit registers - the `ZMM` registers we mentioned before. If we wanted to with `YMM` or `XMM` registers we'd replace the `512` with `256` or `128` respectively
 * the `pd` at the end is short for "Precision Double", aka a 64-bit floating-point value. We'd replace this with `epi64` if we wanted to work on 64 bit integers instead of floats
-* everything between those two pieces describes the specific operation. `add` means we're adding, `mul` means we're multipling, `storeu` and `loadu`  means we're storing and loading (and not worrying if the memory address is 64-byte aligned, hence the "u" for "unaligned"), etc.
-You can browse through the available operations and their short descriptions on [Rust's doc page for x86_64 instrinsics](https://doc.rust-lang.org/core/arch/x86_64/index.html) or go straight to the source with [Intel's Instrinsics Guide](https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html#expand=4789)
+* everything between those two pieces describes the specific operation. `add` means we're adding, `mul` means we're multiplying, `storeu` and `loadu`  means we're storing and loading (and not worrying if the memory address is 64-byte aligned, hence the "u" for "unaligned"), etc.
+You can browse through the available operations and their short descriptions on [Rust's doc page for x86_64 intrinsics](https://doc.rust-lang.org/core/arch/x86_64/index.html) or go straight to the source with [Intel's Intrinsics Guide](https://www.intel.com/content/www/us/en/docs/intrinsics-guide/index.html#expand=4789)
 
 
-You may have noticed that all of our intrinsics calls live inside of `unsafe` blocks. The Rust compiler goes to [great pains](https://doc.rust-lang.org/book/ch04-00-understanding-ownership.html) to ensure any code you write is "safe" and doesn't do things like access invalid memory, modify data shared between threads, or other things that can lead to "undefined behavior" and represent a [significant source of security vulnerabilities in software](https://www.keysight.com/blogs/en/tech/nwvs/2024/03/21/the-impact-of-rust-on-security-development). 
+You may have noticed that all of our intrinsics calls live inside of `unsafe` blocks. The Rust compiler goes to [great pains](https://doc.rust-lang.org/book/ch04-00-understanding-ownership.html) to ensure any code you write is "safe" and doesn't do things like access invalid memory, modify data shared between threads, or other things that can lead to "undefined behavior" and result in a [significant source of security vulnerabilities in software](https://www.keysight.com/blogs/en/tech/nwvs/2024/03/21/the-impact-of-rust-on-security-development). 
 
 Since our intrinsics calls compile straight to hand-picked assembly instructions, we prevent the compiler from doing things like bounds checks on our loads, or even such basic safety checks as *ensuring valid assembly for the target CPU* (what if we're compiling for an x86 cpu without AVX-512 or even, \*gulp\* an ARM CPU?!). Wrapping the intrinsics code in an `unsafe` block is sort of like signing a liability waiver: we acknowledge that Rust is not providing its normal safety guarantees to code within the block, and it's incumbent on us, the programmer, to ensure our code is "safe". 
 
-We avoid out-of-bounds memory accesses in our SIMD loops by ensuring `i` never refers to an element less than `SIMD_WIDTH` (which equals 8, as defined above) elements from the end, so when we pull 8 64-bit elements with `_mm512_loadu_pd` or write 8 elements with `_m512_store_pd`, we're never going past the end of our vectors.
+We avoid out-of-bounds memory accesses in our SIMD loops by ensuring `i` never refers to an element less than `SIMD_WIDTH` (which equals 8, as defined above) elements from the end, so when we pull 8 64-bit elements with `_mm512_loadu_pd` or write 8 elements with `_m512_storeu_pd`, we're never going past the end of our vectors [^1].
 
-And we make sure we actually *have* AVX-512 functionality available with that `#[cfg(...)]` block above our function. That annotation tells the compiler to only include and compile this function when it's compiling for a CPU with the x86_64 architecture with the AVX-512 feature. The AVX-512 requirement is probably sufficient, but we'll include the x86 requirement anyway - a bit of extra safety, with the added bonus of telling any future readers of our code who may not be familiar with AVX-512 that it's related to the x86 architecture. We include the same thing above our benchmark, so it only gets included when we're building for the proper machine
+[^1]: That's the Rust Vector type - analogous to a python list or Java ArrayList - not a SIMD vector
+
+And we make sure we actually *have* AVX-512 functionality available with that `#[cfg(...)]` block above our function. That annotation tells the compiler to only include and compile this function when it's compiling for a CPU with the 64-bit x86 architecture and the AVX-512 feature. The AVX-512 requirement is probably sufficient, but we'll include the x86 requirement anyway - a bit of extra safety, with the added bonus of telling any future readers of our code who may not be familiar with AVX-512 that it's related to the x86 architecture. We include the same thing above our benchmark, so the benchmark only gets included when we're building for the proper machine
+
 
 ```rust
 #[cfg(all(target_arch = "x86_64", target_feature = "avx512f",))]
@@ -1079,18 +1017,25 @@ For all the extra verbosity, we got a 1.04x speedup over our portable SIMD code.
 
 ## Conclusion
 
-Where does this all leave us? Here's our final score:
+We've gone over the concept of SIMD operations and how they're helpful, explained B-Splines and shown how they can be calculated in Rust, and gone over a number of different ways to improve the performance of calculating B-Splines with SIMD operations. Where does that leave us?
 
 ![Graph showing relative speeds of our different implementation methods](generated_images/final_times.png)
 
 We get the vast majority of our speedup just moving from a recursive implementation to a loop-based one, getting rid of the recursive overhead and letting LLVM's auto-vectorizer do more optimization work for us; Even if we cut the advantage in half (to account for the fact that the recursive version has to calculate all basis functions besides the top layer twice), it's still a 6x speed boost over recursion. **If you're concerned about performance, stay away from recursion, and embrace loops**.
 
-Rewriting our loop-based method using Rust's portable SIMD module resulted in a non-trivial ~1.15x speedup, but did cost us a bit in code-brevity: we went from 30 lines of code to 300. Now, even though the Rust code tripled, that doesn't mean the compiled assembly necessarily trippled; if it did, we'd be worried about larger functions losing their gains to instruction cache misses. So, even for larger functions, **moving to a portable SIMD implementation may be worth it for performance-sensitive programs**.
+Rewriting our loop-based method using Rust's portable SIMD module resulted in a non-trivial ~1.15x speedup, but did cost us a bit in code-brevity: we went from 30 lines of code to 300. Now, even though the Rust code tripled, that doesn't mean the compiled assembly necessarily tripled; if it did, we'd be worried about larger functions losing their gains to instruction cache misses. So, even for larger functions, **moving to a portable SIMD implementation may be worth it for performance-sensitive programs**.
 
-We'd hoped that by rewriting our function using explicit SIMD code, we'd be able to take advantage of the bigger 512-bit registers and go even faster. Dissapointingly, while we did in-fact improve data-level parallelism and reduce the total number of instructions required to complete our calculations, those gains were cancelled out by worse instruction-level parallelism and thus fewer instructions-per-cycle, resulting in essentially unchanged runtime. 
+We'd hoped that by rewriting our function using explicit SIMD code, we'd be able to take advantage of the bigger 512-bit registers and go even faster. disappointingly, while we did in-fact improve data-level parallelism, reducing the total number of instructions required to complete our calculations, those gains were cancelled out by worse instruction-level parallelism and thus fewer instructions-per-cycle, resulting in essentially unchanged runtime. 
 
-That being said, it was trivial to enable the 512-bit operations - we just had to pass a flag to our compiler. If you're able to compile and benchmark your code on the same type of machine that will run it, **it's worth it to pass `-Ctarget-cpu=native` to the compiler and see what happens**
+That being said, once we'd written the portable SIMD code, it was trivial to enable the 512-bit operations - we just had to pass a flag to our compiler. If you're able to compile and benchmark your code on the same type of machine that will run it, **it's worth it to pass `-Ctarget-cpu=native` to the compiler and see what happens**
 
-Finally, using intrinsics to inject SIMD operations into our code had a dissapointing return on investment. At a minor cost of readability and a significant cost of *portablity*, we only ekked out a measily 1.04x speedup. Those extremely concerned with performance may cheer *anything* that could improve speed by 4%, but for everyone else, the cost of maintaining a separate portable version of the optimized functions and conditionally compile the correct version will outweigh the cost. **Using SIMD intrinsics generally isn't worth it.**
+Finally, using intrinsics to inject SIMD operations into our code had a disappointing return on investment. At a minor cost of readability and a significant cost of *portability*, we only eked out a measly 1.04x speedup. Those extremely concerned with performance may cheer *anything* that could improve speed by 4%, but for everyone else, the cost of maintaining a separate portable version of the optimized functions and conditionally compile the correct version will outweigh the cost. **Using SIMD intrinsics only provides a marginal speed-up over Portable SIMD.** 
+
+| Implementation     | Speedup over Recursive | Speedup over Next-Best | Additional Requirements                                         |
+| ------------------ | ---------------------- | ---------------------- | --------------------------------------------------------------- |
+| Recursive          | 1.0x                   | 1.0x                   | None                                                            |
+| Loop-based         | 12.2x                  | 12.2x                  | None                                                            |
+| Portable SIMD      | 14.3x                  | 1.17x                  | nightly Rust                                                    |
+| CPU Intrinsic SIMD | 14.9x                  | 1.04x                  | nightly Rust + separate implementation for different processors |
 
 Just because you're not running on a GPU doesn't mean you can't take advantage of greater parallelism, but nothing is free. SIMD operations are an option when your CPU supports it, but I would only recommend it for the most speed-conscious; for everyone else, focusing on generally-efficient code will provide the most bang-for-your-buck

@@ -1,0 +1,24 @@
+{
+    "cSpell.words": [
+        "Desmos",
+        "Superscaling",
+        "vectorizable"
+    ],
+    "cSpell.ignoreWords": [
+        "Ctarget",
+        "Hyperbook",
+        "Topdown",
+        "avxvnni",
+        "bitalg",
+        "debuginfo",
+        "fxsr",
+        "ifma",
+        "insn",
+        "loadu",
+        "ssse",
+        "storeu",
+        "vbmi",
+        "vnni",
+        "vpopcntdq"
+    ]
+}
