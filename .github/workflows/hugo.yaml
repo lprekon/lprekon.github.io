@@ -76,8 +76,9 @@ jobs:
         run: python -m pip install --upgrade pip && pip install jupyter matplotlib numpy
       - name: Iterate and Execute Notebooks
         run: |
-          for NOTEBOOK in $(find notebooks/ -name "*.ipynb" -type f); do
-            jupyter nbconvert --to notebook --execute --inplace $NOTEBOOK
+          for NOTEBOOK_PATH in $(find . -name "*.ipynb" -type f); do
+            cd $(dirname $NOTEBOOK_PATH)
+            jupyter nbconvert --to notebook --execute --inplace $(basename $NOTEBOOK_PATH)
           done
 
       - name: Install Node.js dependencies

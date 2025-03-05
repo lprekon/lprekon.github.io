@@ -15,9 +15,7 @@ This post is primarily a case-study. If you'd like to read about designing SIMD 
 
 All work shown was conducted on an AWS [C7i](https://aws.amazon.com/ec2/instance-types/c7i/) EC2 instance running an [Intel 4th Gen Xeon processor](https://en.wikipedia.org/wiki/Sapphire_Rapids)
 
-All graphics were generated using matplotlib in a Jupyter notebook, which can be downloaded <a href="sharable_notebooks/simd_benchmarking.ipynb" download>here</a>
-
-The Rust code is available on GitHub [here](https://github.com/lprekon/spline_simd_benchmarking)
+All graphics were generated using matplotlib in a Jupyter notebook, which can be downloaded <a href="/notebooks/simd_blogpost_graphics.ipynb" download> here</a>
 
 ## What is Vectorization? An Intro to SIMD
 
@@ -31,11 +29,11 @@ But sometimes you don’t want to run your code on a GPU. Maybe you don’t have
 
 Under normal conditions your processor would grab the first number from each list, add them together, write the result back to memory, then repeat on the next set of numbers. 
 
-![A diagram demonstrating adding 4 pairs of numbers together, one after the other](/generated_images/scalar_adding.png)
+![A diagram demonstrating adding 4 pairs of numbers together, one after the other](generated_images/scalar_adding.png)
 
 Using SIMD operations, the CPU can pull several numbers at a time from each list, add each chunk together, and write the entire chunk back at once 
 
-![a diagram demonstrating adding 4 pairs of numbers together, all at once](/generated_images/vector_adding.png)
+![a diagram demonstrating adding 4 pairs of numbers together, all at once](generated_images/vector_adding.png)
 
 In this article, we're going to show some straight-forward code to do some fancy mathematical calculations, and then we're going to "vectorize" it: turn it into SIMD code that will exercise this rarely-explicitly-used circuitry to run even faster. We'll explore a couple different options for doing so.
 
@@ -70,17 +68,17 @@ A B-spline is a recursive piece-wise function defined using three values
 3. A single number called the "degree" of the spline, which determines how many levels of recursion the function uses and, consequently, how smooth the resulting curve is
 
 Let's look at an example:
-![A degree-0 B-spline](/generated_images/bspline_degree_0.png)
+![A degree-0 B-spline](generated_images/bspline_degree_0.png)
 
 This is a dirt-simple degree-0 b-spline. The value of the spline at some value `x` is equal to the weighted sum of the constituent "basis functions" at `x`, so long as `x` is within the range defined by the knots; the function is zero everywhere else. In the above example, the weights (or “control points”) are all 1 for simplicity. Let’s take a look at some of the basis functions for this degree-0 spline
 
-![the 1st basis function for a degree-0 B-spline](/generated_images/degree_0/degree_0_basis_0.png)
-![the 2nd basis function for a degree-0 B-spline](/generated_images/degree_0/degree_0_basis_1.png)
-![the 3rd basis function for a degree-0 B-spline](/generated_images/degree_0/degree_0_basis_2.png)
+![the 1st basis function for a degree-0 B-spline](generated_images/degree_0/degree_0_basis_0.png)
+![the 2nd basis function for a degree-0 B-spline](generated_images/degree_0/degree_0_basis_1.png)
+![the 3rd basis function for a degree-0 B-spline](generated_images/degree_0/degree_0_basis_2.png)
 
 Each degree 0 basis function is simply defined as `1` when `x` is between the `i'th` and `i+1'th` knot, and 0 everywhere else. Ok, so far, so boring. We’re just looking at some lines. Let’s start looking at higher degree B-splines to see how it comes together. Here’s the general form of the basis function for degree 1 and higher. It looks complicated, but we can break it down
 
-![The basis function formula for B-splines degree 1 and higher](/generated_images/basis_formula.png)
+![The basis function formula for B-splines degree 1 and higher](generated_images/basis_formula.png)
 
 In english:
 1. The `i'th` basis function of some degree `k` is equal to…
@@ -99,27 +97,27 @@ In english:
 
 That’s a lot of math. Let’s look at in action. Here are three degree-1 basis functions, along with the degree-0 basis functions on which they depend
 
-![the 1st basis function for a degree-1 B-spline](/generated_images/degree_1/degree_1_basis_0.png)
-![the 2nd basis function for a degree-1 B-spline](/generated_images/degree_1/degree_1_basis_1.png)
-![the 3rd basis function for a degree-1 B-spline](/generated_images/degree_1/degree_1_basis_2.png)
+![the 1st basis function for a degree-1 B-spline](generated_images/degree_1/degree_1_basis_0.png)
+![the 2nd basis function for a degree-1 B-spline](generated_images/degree_1/degree_1_basis_1.png)
+![the 3rd basis function for a degree-1 B-spline](generated_images/degree_1/degree_1_basis_2.png)
 
 The 0th degree-1 basis function `B_0_1` "blends" the 0th and 1st degree-0 basis functions (`B_0_0` and `B_1_0` respectively) and so is non-zero where either `B_0_0` or `B_1_0` are non-zero, and zero everywhere else. Likewise `B_1_1` blends `B_1_0` and `B_2_0`, and so `B_1_1` is only non-zero over the range either of its dependencies are non-zero. 
 
 Now, for degree-2 basis functions: 
 
-![the 1st basis function for a degree-2 B-spline](/generated_images/degree_2/degree_2_basis_0.png)
-![the 2nd basis function for a degree-2 B-spline](/generated_images/degree_2/degree_2_basis_1.png)
-![the 3rd basis function for a degree-2 B-spline](/generated_images/degree_2/degree_2_basis_2.png)
+![the 1st basis function for a degree-2 B-spline](generated_images/degree_2/degree_2_basis_0.png)
+![the 2nd basis function for a degree-2 B-spline](generated_images/degree_2/degree_2_basis_1.png)
+![the 3rd basis function for a degree-2 B-spline](generated_images/degree_2/degree_2_basis_2.png)
 
 Again, each basis function is based on the ones below it. Each function `B_i_2` "blends" the basis functions `B_i_1` and `B_i+1_1`. All of these basis functions follow the formula defined above, where `k` equals the “degree” of the basis function, and `i` is given the value 1, 2, or 3 for the first, second, and third images in each set, respectively. The pattern would continue as we move to higher degrees - 3, 4, 5, and up. 
 
 Let’s move up to a degree-3 b-spline and put all the basis functions together
 
-![A full degree-3 B-spline with control points all set to 1](/generated_images/bspline_degree_3_full.png)
+![A full degree-3 B-spline with control points all set to 1](generated_images/bspline_degree_3_full.png)
 
 The colored lines are each one of our basis functions, and the black line is the full B-spline. At any point `x`, the value of `spline(x)` is the sum of the values of each basis function `B_i` evaluated at that point `x`. In the above example the control points are all set to 1. Let's see another example with different control points to see how they affect things
 
-![A full degree-3 B-spline with varying control points ](/generated_images/bspline_degree_3_full_with_control_points.png)
+![A full degree-3 B-spline with varying control points ](generated_images/bspline_degree_3_full_with_control_points.png)
 
 Now we're cooking with gas! Here we see a B-spline in all it's glory. By manipulating the control points, we can "tug" portions of the spline curve in one direction or another. 
 
@@ -237,11 +235,11 @@ From this point on, as we explore different vectorization strategies, there are 
 
 To understand our first optimization, let's take a step back and consider how the value of `B_i_k`, the value of the `i'th` basis function of degree `k`, depends on the values of the basis functions of degree `k-1`
 
-![A pyramid showing the dependency chain for the 0th basis function at degree 3](/generated_images/basis_pyramid/single_basis_pyramid.png)
+![A pyramid showing the dependency chain for the 0th basis function at degree 3](generated_images/basis_pyramid/single_basis_pyramid.png)
 
 One thing to note is that in each layer, each basis function is depended on by the one above it, and the one above-and-to-the-left of it. Our actual B-splines depend on more than one top-level basis function, however, so let's look at a version of this pyramid with multiple basis functions in the top layer
 
-![A pyramid showing the dependency chain for the 0th through 3rd basis function at degree 3](/generated_images/basis_pyramid/multiple_basis_pyramid.png)
+![A pyramid showing the dependency chain for the 0th through 3rd basis function at degree 3](generated_images/basis_pyramid/multiple_basis_pyramid.png)
 
 A basis function is never depended **on** by *any* basis function to its right, and a basis function never **depends** on *any* basis function to its left. With that, we can rewrite our spline function in a loop that reuses previously calculated values instead of throwing them away.
 
@@ -299,21 +297,21 @@ Here's our first optimized spline calculator. Now that we're not recursing, ther
 
 In order to calculate the final value of the spline at point `x`, we need the value of each of our top level basis functions. To start, in that `0..knots.len() - 1` loop, we calculate the value of each degree-0 basis functions and store the results in a vector. 
 
-![degree-3 pyramid of basis functions with all but the bottom layer greyed out](/generated_images/basis_pyramid/multiple_basis_pyramid_bot_layer_filled.png)
+![degree-3 pyramid of basis functions with all but the bottom layer greyed out](generated_images/basis_pyramid/multiple_basis_pyramid_bot_layer_filled.png)
 
 Next, the `1..=degree` loop is where the magic happens. At each layer `k`, starting at `1` and moving up to our full degree, we walk our vector of basis functions and calculate each in turn, overwriting the value of the lower-degree basis function that was in its spot. This works because of the direction of the arrows in the dependency pyramid. For example, when `k=1` and `i=0`, we're calculating basis function `B_0_1`, which depends on `B_0_0` and `B_1_0`, which at that point live in our vector at the `0th` and `1st` position, respectively. We read those values from the vector, and use them to calculate `B_0_1`
 
-![degree-3 pyramid of basis functions with all but the bottom layer greyed out. There's a red box around the first basis function in the second layer](/generated_images/basis_pyramid/calculating_B_0_3.png)
+![degree-3 pyramid of basis functions with all but the bottom layer greyed out. There's a red box around the first basis function in the second layer](generated_images/basis_pyramid/calculating_B_0_3.png)
 
 Then we write `B_0_1` to the `0th` position in our vector, overwriting `B_0_0`, which is no longer needed. After that we move on to calculating `B_1_1`
 
-![degree-3 pyramid of basis functions. The first basis function in the second layer is filled in, as are the second-through-last basis functions in the bottom layer. The rest are greyed out. There's a red box around the second basis function in the second layer](/generated_images/basis_pyramid/calculating_B_1_3.png)
+![degree-3 pyramid of basis functions. The first basis function in the second layer is filled in, as are the second-through-last basis functions in the bottom layer. The rest are greyed out. There's a red box around the second basis function in the second layer](generated_images/basis_pyramid/calculating_B_1_3.png)
 
 Which overwrites `B_1_0`, and so on
 
-![degree-3 pyramid of basis functions. The first and second basis function in the second layer are filled in, as are the third-through-last basis functions in the bottom layer. The rest are greyed out. There's a red box around the third basis function in the second layer](/generated_images/basis_pyramid/calculating_B_2_3.png)
+![degree-3 pyramid of basis functions. The first and second basis function in the second layer are filled in, as are the third-through-last basis functions in the bottom layer. The rest are greyed out. There's a red box around the third basis function in the second layer](generated_images/basis_pyramid/calculating_B_2_3.png)
 
-![degree-3 pyramid of basis functions. The first-through-third basis function in the second layer are filled in, as are the fourth-through-last basis functions in the bottom layer. The rest are greyed out. There's a red box around the fourth basis function in the second layer](/generated_images/basis_pyramid/calculating_B_3_3.png)
+![degree-3 pyramid of basis functions. The first-through-third basis function in the second layer are filled in, as are the fourth-through-last basis functions in the bottom layer. The rest are greyed out. There's a red box around the fourth basis function in the second layer](generated_images/basis_pyramid/calculating_B_3_3.png)
 
 Each iteration of that second loop fills in one layer of our pyramid. Once we finish, the first several elements of our `basis_activations` vector are the outputs of our top-level basis functions; the remaining values are leftover basis outputs from lower levels that were never overwritten, and can be safely discarded
 
@@ -839,7 +837,7 @@ $> perf stat -e cycles,instructions,exe_activity.exe_bound_0_ports,exe_activity.
        0.048280000 seconds sys
 ```
 
-![a graph showing the count of cycles that used a given number of execution ports](/generated_images/port_utilization.png)
+![a graph showing the count of cycles that used a given number of execution ports](generated_images/port_utilization.png)
 
 When graphed, it's obvious the AVX-512 version has reduced EU usage. We see that the default version uses 2.41 execution units on average, while the AVX-512 version only uses 1.65. Another way to read that is "during the course of the program, the default version tended to be working on 2.41 operations at once, while the AVX-512 version only tended to be working on 1.65 operations at once".
 
@@ -1027,7 +1025,7 @@ For all the extra verbosity, we got a 1.04x speedup over our portable SIMD code.
 
 We've gone over the concept of SIMD operations and how they're helpful, explained B-Splines and shown how they can be calculated in Rust, and gone over a number of different ways to improve the performance of calculating B-Splines with SIMD operations. Where does that leave us?
 
-![Graph showing relative speeds of our different implementation methods](/generated_images/final_times.png)
+![Graph showing relative speeds of our different implementation methods](generated_images/final_times.png)
 
 We get the vast majority of our speedup just moving from a recursive implementation to a loop-based one, getting rid of the recursive overhead and letting LLVM's auto-vectorizer do more optimization work for us; Even if we cut the advantage in half (to account for the fact that the recursive version has to calculate all basis functions besides the top layer twice), it's still a 6x speed boost over recursion. **If you're concerned about performance, stay away from recursion, and embrace loops**.
 
