@@ -1,5 +1,5 @@
 .DS_Store
 .hugo_build.lock
 public/
-content/*/generated_images/
+/*/generated_images/
 content/*/*/target/
