@@ -229,11 +229,11 @@ From this point on, as we explore different vectorization strategies, there are 
 
 To understand our first optimization, let's take a step back and consider how the value of `B_i_k`, the value of the `i'th` basis function of degree `k`, depends on the values of the basis functions of degree `k-1`
 
-![A pyramid showing the dependency chain for the 0th basis function at degree 3](generated_images/single_basis_pyramid.png)
+![A pyramid showing the dependency chain for the 0th basis function at degree 3](generated_images/basis_pyramid/single_basis_pyramid.png)
 
 One thing to note is that in each layer, each basis function is depended on by the one above it, and the one above-and-to-the-left of it. Our actual B-splines depend on more than one top-level basis function, however, so let's look at a version of this pyramid with multiple basis functions in the top layer
 
-![A pyramid showing the dependency chain for the 0th through 3rd basis function at degree 3](generated_images/multiple_basis_pyramid.png)
+![A pyramid showing the dependency chain for the 0th through 3rd basis function at degree 3](generated_images/basis_pyramid/multiple_basis_pyramid.png)
 
 A basis function is never depended **on** by *any* basis function to its right, and a basis function never **depends** on *any* basis function to its left. With that, we can rewrite our spline function in a loop that reuses previously calculated values instead of throwing them away.
 
