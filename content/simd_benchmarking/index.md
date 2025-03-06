@@ -15,7 +15,7 @@ This post is primarily a case-study. If you'd like to read about designing SIMD 
 
 All work shown was conducted on an AWS [C7i](https://aws.amazon.com/ec2/instance-types/c7i/) EC2 instance running an [Intel 4th Gen Xeon processor](https://en.wikipedia.org/wiki/Sapphire_Rapids)
 
-All graphics were generated using matplotlib in a Jupyter notebook, which can be downloaded <a href="/notebooks/simd_blogpost_graphics.ipynb" download> here</a>
+All graphics were generated using matplotlib in a Jupyter notebook, which can be downloaded <a href="/notebooks/simd_blogpost_graphics.ipynb" download="simd_benchmarking.ipynb"> here</a>
 
 ## What is Vectorization? An Intro to SIMD
 
