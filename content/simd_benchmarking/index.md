@@ -1,5 +1,5 @@
 +++
-date = '2025-02-12T19:00:59-05:00'
+date = '2025-03-04T19:00:59-05:00'
 draft = false
 title = 'Benchmarking Different Vectorization Strategies in Rust'
 +++
@@ -118,6 +118,7 @@ Let’s move up to a degree-3 b-spline and put all the basis functions together
 The colored lines are each one of our basis functions, and the black line is the full B-spline. At any point `x`, the value of `spline(x)` is the sum of the values of each basis function `B_i` evaluated at that point `x`. In the above example the control points are all set to 1. Let's see another example with different control points to see how they affect things
 
 ![A full degree-3 B-spline with varying control points ](generated_images/bspline_degree_3_full_with_control_points.png)
+<!-- {{< figure src="generated_images/bspline_degree_3_full_with_control_points.png" alt="A graph showing how adjusting the control points warps the curve traced by a B-Spline" caption="A degree-3 B-Spline with control points -0.5, 1, 0.5, and 1.2" >}} -->
 
 Now we're cooking with gas! Here we see a B-spline in all it's glory. By manipulating the control points, we can "tug" portions of the spline curve in one direction or another. 
 
@@ -140,7 +141,7 @@ Now that that we have some grasp of the math we'll be doing, let's implement it 
 
 Let's begin with a straight forward implementation of our spline math. This code is intentionally sub-optimal, so we'll have a baseline for our benchmarking
 
-```rust
+```rust {linenos=inline}
 /// recursivly compute the b-spline basis function for the given index `i`, degree `k`, and knot vector, at the given parameter `x`
 fn basis_activation(i: usize, k: usize, x: f64, knots: &[f64]) -> f64 {
     // If degree is 0, the basis function is 1 if the parameter is within the range of the knot, and 0 otherwise
@@ -180,7 +181,7 @@ The function `b_spline()` calculates the value of a B-Spline function - defined 
 
 We'll be benchmarking this code with Rust's built-in benchmarking tool [`cargo bench`](https://doc.rust-lang.org/cargo/commands/cargo-bench.html). Here's a quick look at our benchmarking code
 
-```rust
+```rust {linenos=inline}
 ##![feature(test)]
 extern crate test;
 use test::Bencher;
@@ -243,7 +244,7 @@ One thing to note is that in each layer, each basis function is depended on by t
 
 A basis function is never depended **on** by *any* basis function to its right, and a basis function never **depends** on *any* basis function to its left. With that, we can rewrite our spline function in a loop that reuses previously calculated values instead of throwing them away.
 
-```rust
+```rust {linenos=inline}
 /// Calculate the value of the B-spline at the given parameter `x` by looping over the basis functions
 pub fn b_spline_loop_over_basis(
     inputs: &[f64],
@@ -299,7 +300,7 @@ In order to calculate the final value of the spline at point `x`, we need the va
 
 ![degree-3 pyramid of basis functions with all but the bottom layer greyed out](generated_images/basis_pyramid/multiple_basis_pyramid_bot_layer_filled.png)
 
-Next, the `1..=degree` loop is where the magic happens. At each layer `k`, starting at `1` and moving up to our full degree, we walk our vector of basis functions and calculate each in turn, overwriting the value of the lower-degree basis function that was in its spot. This works because of the direction of the arrows in the dependency pyramid. For example, when `k=1` and `i=0`, we're calculating basis function `B_0_1`, which depends on `B_0_0` and `B_1_0`, which at that point live in our vector at the `0th` and `1st` position, respectively. We read those values from the vector, and use them to calculate `B_0_1`
+Next, the `1..=degree` loop starting on line 26 is where the magic happens. At each layer `k`, starting at `1` and moving up to our full degree, we walk our vector of basis functions and calculate each in turn, overwriting the value of the lower-degree basis function that was in its spot. This works because of the direction of the arrows in the dependency pyramid. For example, when `k=1` and `i=0`, we're calculating basis function `B_0_1`, which depends on `B_0_0` and `B_1_0`, which at that point live in our vector at the `0th` and `1st` position, respectively. We read those values from the vector, and use them to calculate `B_0_1`
 
 ![degree-3 pyramid of basis functions with all but the bottom layer greyed out. There's a red box around the first basis function in the second layer](generated_images/basis_pyramid/calculating_B_0_3.png)
 
@@ -354,7 +355,7 @@ Note for those following along with their own code at home: using `std::simd` re
 
 Below is our B-spline calculation function using SIMD operations. It calculates everything the same way as our looping method, but uses explicit SIMD calls to operate on multiple elements at the same time
 
-```rust
+```rust {linenos=inline}
 const SIMD_WIDTH: usize = 8;
 
 pub fn b_spline_portable_simd(
@@ -578,7 +579,7 @@ The next few sections investigate our lackluster SIMD performance and get pretty
 
 First things first - are we actually *using* the SIMD loops enough for the faster calculations to matter? We expect the SIMD-using `1..=degree` loop to be "hot", meaning we spend a significant chunk of runtime there, and thus speeding up the loop should speed up the overall program. But, maybe those loops *are* running faster, but they're actually "cold" - they represent a small fraction of our overall runtime, so we don't notice any speed ups. Let's really crank the size of the calculations we're benchmarking and see if that reveals a greater difference between the version compiled for a generic CPU, and the version compiled for a Sapphire Rapids CPU with AVX-512 operations
 
-```rust
+```rust {linenos=inline}
 // define the parameters for the B-spline we'll use in each benchmark
 fn get_test_parameters() -> (usize, Vec<f64>, Vec<f64>, Vec<f64>) {
     let spline_size = 1000; // increased from 100 to 1000
@@ -639,7 +640,7 @@ Turns out this hypothesis is really easy to test. We'll use a linux built-in too
 We're going to add a simple `main` function to our code so we can run it on its own, instead of running it as part of a benchmark. Since we're measuring with `perf` instead of `cargo bench`, this will help us isolate and measure *only* the code we're testing, and keep any code added by the benchmarking infrastructure from muddying our measurements.
 
 Here's the `main` function, for reference. It does exactly what the benchmark was doing: calculating different basis values for each of the different inputs. We're increasing the number of calculations done to ensure the code runs long enough for perf to get a good measurement
-```rust
+```rust {linenos=inline}
 pub fn main() {
     let spline_size = 2000;
     let input_size = 2000;
@@ -856,7 +857,7 @@ Now, we can't say it's *never* useful to add data-parallelism with the Rust port
 Ok, now we're going to try rewriting our function using the x86 intrinsics provided by the [Rust arch module](https://doc.rust-lang.org/core/arch/index.html). Essentially, we're going to tell the compiler exactly which CPU instruction we want to use for our SIMD operations. This code is going to be even more verbose than the last version, but let's take a look at the new function, and then I'll explain what we're looking at
 
 
-```rust
+```rust {linenos=inline}
 ##[cfg(all(target_arch = "x86_64", target_feature = "avx512f",))]
 pub fn b_spline_x86_intrinsics(
     inputs: &[f64],
@@ -990,7 +991,7 @@ We avoid out-of-bounds memory accesses in our SIMD loops by ensuring `i` never r
 And we make sure we actually *have* AVX-512 functionality available with that `#[cfg(...)]` block above our function. That annotation tells the compiler to only include and compile this function when it's compiling for a CPU with the 64-bit x86 architecture and the AVX-512 feature. The AVX-512 requirement is probably sufficient, but we'll include the x86 requirement anyway - a bit of extra safety, with the added bonus of telling any future readers of our code who may not be familiar with AVX-512 that it's related to the x86 architecture. We include the same thing above our benchmark, so the benchmark only gets included when we're building for the proper machine
 
 
-```rust
+```rust {linenos=inline}
 ##[cfg(all(target_arch = "x86_64", target_feature = "avx512f",))]
 ##[bench]
 fn bench_intrinsic_simd_method(b: &mut Bencher) {
