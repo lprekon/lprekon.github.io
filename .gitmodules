@@ -4,3 +4,9 @@
 [submodule "content/simd_benchmarking/spline_simd_benchmarking"]
 	path = content/simd_benchmarking/spline_simd_benchmarking
 	url = git@github.com:lprekon/spline_simd_benchmarking.git
+[submodule "themes/PaperMod"]
+	path = themes/PaperMod
+	url = https://github.com/adityatelange/hugo-PaperMod.git
+[submodule "themes/paige"]
+	path = themes/paige
+	url = https://github.com/willfaught/paige.git

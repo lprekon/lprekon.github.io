@@ -2,9 +2,8 @@
 date = '2025-03-04T19:00:59-05:00'
 draft = false
 title = 'Benchmarking Different Vectorization Strategies in Rust'
+summary = "Exploring different methods to incorporate Single-Instruction-Multiple-Data operations into one's code." 
 +++
-
-{{< toc >}}
 
 
 In this post, we'll go over what Single Instruction Multiple Data (SIMD) operations are and why you should care. We'll go over different ways to get SIMD operations included in your code, and we'll implement and benchmark those different methods to see how they work in practice. For our case study, we'll be calculating B-Splines. We'll briefly go over the math behind B-Splines, show a straightforward reference implementation, and then dive into how to optimize that implementation with SIMD operations. We'll measure how fast each method is, troubleshoot issues, and show how expected speed-ups can fail to materialize.
