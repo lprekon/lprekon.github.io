@@ -2,7 +2,7 @@
 date = '2025-03-04T19:00:59-05:00'
 draft = false
 title = 'Benchmarking Different Vectorization Strategies in Rust'
-summary = "Exploring different methods to incorporate Single-Instruction-Multiple-Data operations into one's code." 
+summary = "Exploring different methods to incorporate Single-Instruction-Multiple-Data operations into one's code."  
 +++
 
 
@@ -79,7 +79,7 @@ Each degree 0 basis function is simply defined as `1` when `x` is between the `i
 
 ![The basis function formula for B-splines degree 1 and higher](generated_images/basis_formula.png)
 
-In english:
+In English:
 1. The `i'th` basis function of some degree `k` is equal to…
    1. The weighted combination of…
       1. The `i'th` basis function of degree `k-1`
@@ -131,7 +131,7 @@ There's a lot more we could say about B-Splines (what happens if we mess with th
 
 **In conclusion: B-Splines are functions that let us trace arbitrary curves. To determine the value of the spline at some point `x`:**
 1. **evaluate each basis function (which is a recursive function) at `x`**
-2. **multiply by the basis function outputs by their corresponding control points**
+2. **multiply the basis function outputs by their corresponding control points**
 3. **sum the results**
 
 Now that that we have some grasp of the math we'll be doing, let's implement it in code
