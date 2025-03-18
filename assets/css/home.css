@@ -1,7 +1,7 @@
 .homepage {
     display: flex;
     flex-direction: row-reverse;
-    max-width: 1200px;
+    max-width: 1600px;
     flex-wrap: wrap;
     margin-left: auto;
     margin-right: auto;
@@ -10,13 +10,24 @@
 #about{
     flex: 1 1 100%;
 }
+
+#about p {
+    margin-bottom: 1.5rem;
+}
+
 #sidebar {
     flex: 1 1 100%;
 }
 
 @media (min-width: 600px) {
     #about {
-        flex: 0 0 67%;
+        flex: 0 0 60%;
+        margin-right: 7%;
+        margin-top: 5%;
+        font-size: larger;
+    }
+    #about p {
+        margin-bottom: 2rem;
     }
     #sidebar {
         flex: 0 0 33%;
