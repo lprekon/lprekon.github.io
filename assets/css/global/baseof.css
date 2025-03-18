@@ -5,11 +5,15 @@ html {
     box-sizing: border-box;
 }
 
-
+body {
+    margin:0;
+    padding: 20px;
+}
 
 .major-title, .minor-title{
     border-bottom: 1px solid #fbfdfe;
-    margin-bottom: 5rem;
+    margin-bottom: 3rem;
+    padding-bottom: 1rem;
 }
 
 .major-title {
