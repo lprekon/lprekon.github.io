@@ -2,19 +2,18 @@
     display: flex;
     flex-direction: row-reverse;
     justify-content: space-evenly;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 #about{
     min-width: 50%;
     flex: 3;
-    margin: 2rem;
+    margin: auto;
 }
 #sidebar {
     min-width: 30%;
 
-}
-#logo-container {
-    justify-content: center;
 }
 
 #logo {
