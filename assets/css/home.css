@@ -1,0 +1,62 @@
+.homepage {
+    display: flex;
+    flex-direction: row-reverse;
+    justify-content: space-evenly;
+}
+
+#about{
+    min-width: 50%;
+    flex: 3;
+    margin: 2rem;
+}
+#sidebar {
+    min-width: 30%;
+
+}
+#logo-container {
+    justify-content: center;
+}
+
+#logo {
+    max-height: 250px;
+}
+
+.article-list {
+    list-style: none;
+    padding-left: 0;
+  }
+  
+  .article-item {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+  }
+  
+  .article-link {
+    display: block;
+    text-decoration: none;
+    color: inherit;
+  }
+
+  
+  /* Each field on its own line */
+  .article-title {
+    display: block;
+    font-weight: bold;
+    font-size: 1.1rem;
+    margin-bottom: 0.25rem;
+  }
+  
+  .article-link:hover  {
+    text-decoration: underline;
+  }
+  
+  .article-date {
+    display: block;
+    font-size: 0.85rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .article-summary {
+    display: block;
+    font-size: 0.9rem;
+  }

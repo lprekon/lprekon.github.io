@@ -1,14 +1,25 @@
-{{ $styles := resources.Get "css/main.css" | minify | fingerprint }}
+{{ $header_styles := resources.Get "css/main.css" | minify | fingerprint }}
 
 <html>
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="stylesheet" href="{{ $styles.RelPermalink }}" />
+    <!-- <link
+      rel="stylesheet"
+      href="https://maxcdn.bootstrapcdn.com/bootstrap/3.4.1/css/bootstrap.min.css"
+    /> -->
+    <link rel="stylesheet" href="{{ $header_styles.RelPermalink }}" />
+    {{ block "head" .}} {{ end }}
     <title>{{ .Title }}</title>
   </head>
-  <body>
-    <header></header>
+  <body style="display: flex; flex-direction: column">
+    <header class="{{ if .IsHome }}major-title{{ else }}minor-title{{ end }}">
+      {{ .Site.Title}}
+    </header>
     {{ block "main" .}} {{ end }}
+
+    <footer class="text-center">
+      <p>Footer text</p>
+    </footer>
   </body>
 </html>

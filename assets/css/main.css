@@ -4,11 +4,27 @@ html {
     color: #fbfdfe;
 }
 
+.major-title, .minor-title{
+    border-bottom: 1px solid #fbfdfe;
+    margin-bottom: 5rem;
+}
+
+.major-title {
+    font-size: 5.5rem;
+    text-align: center;
+    font-weight: bold;
+}
+
+.minor-title {
+    font-size: 1.5em;
+    text-align: center;
+}  
+
 a:link {
     color: #b2e8c2fd;
 }
 
 a:visited {
-    
     color: #989fcf;
 }
+

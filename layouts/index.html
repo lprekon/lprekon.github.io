@@ -1,0 +1,28 @@
+{{ define "head" }} {{ $styles := resources.Get "css/home.css" | minify |
+fingerprint }}
+<link rel="stylesheet" href="{{ $styles.RelPermalink }}" />
+{{ end }} {{ define "main" }} {{ $logo := resources.Get
+"images/green_sprout_1.png" }}
+<div class="homepage">
+  <div id="sidebar">
+    <div id="logo-container">
+      <img id="logo" src="{{ $logo.RelPermalink }}" alt="Logo" />
+    </div>
+    <div id="recent-articles">
+      <h2>Recent Articles</h2>
+      <ul class="article-list">
+        {{ range first 5 .Site.RegularPages }}
+        <li class="article-item">
+          <a href="{{ .RelPermalink }}" class="article-link">
+            <span class="article-title">{{ .Title }}</span>
+            <span class="article-date">{{ .Date.Format "2006-01-02" }}</span>
+            <span class="article-excerpt">{{ .Summary }}</span>
+          </a>
+        </li>
+        {{ end }}
+      </ul>
+    </div>
+  </div>
+  <div id="about">{{ .Content }}</div>
+</div>
+{{ end }}
