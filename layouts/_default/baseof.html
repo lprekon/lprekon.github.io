@@ -9,6 +9,7 @@ minify | fingerprint}}
     <link rel="stylesheet" href="{{ $global_styles.RelPermalink }}" />
     <link rel="stylesheet" href="{{ $footer_styles.RelPermalink }}" />
     <title>{{ .Title }}</title>
+    {{ block "head" .}} {{ end }}
   </head>
   <body style="display: flex; flex-direction: column">
     <header class="{{ if .IsHome }}major-title{{ else }}minor-title{{ end }}">

@@ -1,24 +1,41 @@
 .homepage {
     display: flex;
     flex-direction: row-reverse;
-    justify-content: space-evenly;
+    max-width: 1200px;
+    flex-wrap: wrap;
     margin-left: auto;
     margin-right: auto;
 }
 
 #about{
-    min-width: 50%;
-    flex: 3;
-    margin: auto;
+    flex: 1 1 100%;
 }
 #sidebar {
-    min-width: 30%;
+    flex: 1 1 100%;
+}
 
+@media (min-width: 600px) {
+    #about {
+        flex: 0 0 67%;
+    }
+    #sidebar {
+        flex: 0 0 33%;
+    }
+}
+
+#logo-container {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1.5rem;
 }
 
 #logo {
-    max-height: 250px;
+    width: 100%;
+    /* max-width: 250px; */
+    height: auto;
+    border-radius: 10%;
 }
+
 
 .article-list {
     list-style: none;
