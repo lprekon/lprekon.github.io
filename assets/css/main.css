@@ -1,0 +1,14 @@
+html {
+    background-color: #3f332b;
+    font-family: 'Courier New', Courier, monospace;
+    color: #fbfdfe;
+}
+
+a:link {
+    color: #b2e8c2fd;
+}
+
+a:visited {
+    
+    color: #989fcf;
+}
