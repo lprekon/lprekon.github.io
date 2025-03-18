@@ -2,7 +2,10 @@ html {
     background-color: #3f332b;
     font-family: 'Courier New', Courier, monospace;
     color: #fbfdfe;
+    box-sizing: border-box;
 }
+
+
 
 .major-title, .minor-title{
     border-bottom: 1px solid #fbfdfe;
@@ -13,6 +16,13 @@ html {
     font-size: 5.5rem;
     text-align: center;
     font-weight: bold;
+}
+
+@media (max-width: 600px) {
+    .major-title {
+        font-size: 12vw;
+    }
+    
 }
 
 .minor-title {
