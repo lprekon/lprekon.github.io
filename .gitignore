@@ -3,3 +3,4 @@
 public/
 content/*/generated_images/
 content/*/*/target/
+resources/_gen/

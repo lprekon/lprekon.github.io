@@ -6,20 +6,19 @@ Published at <https://lprekon.github.io/>.
 
 ## Build
 
-- **[Hugo](https://gohugo.io/)** static site generator (use the **extended** build — the theme needs Dart Sass).
-- Theme: **[paige](https://github.com/willfaught/paige)**, vendored as a git submodule.
+- **[Hugo](https://gohugo.io/)** static site generator. No external theme — the layouts and CSS live in this repo (`layouts/` + `assets/css/main.css`), so plain `hugo` works (the extended build / Dart Sass is no longer required).
 - Config lives in `hugo.toml`. Posts live under `content/` (one directory per post, each with an `index.md`).
 - Some post graphics are **generated from a Jupyter notebook** (e.g. `content/simd_benchmarking/simd_blogpost_graphics.ipynb`). CI executes the notebooks at build time, so the generated images aren't checked in.
 
 ## Running locally
 
-This repo uses git submodules. To initialize:
+The theme is in-repo, so no submodules are needed for the site to build. (One submodule remains: the SIMD post's benchmark source under `content/simd_benchmarking/`. Initialize it if you want that code present.)
 
 ```bash
-git submodule update --init --recursive
+git submodule update --init --recursive   # optional — only for the benchmark source
 ```
 
-start the dev server:
+Start the dev server:
 
 ```bash
 hugo server -D
@@ -47,4 +46,11 @@ All pushes to main trigger automatic deployment by running the github action in 
 2. Installs LaTeX + Python and executes every `.ipynb` to regenerate post graphics,
 3. Builds the site with Hugo, and
 4. Publishes the site to GitHub Pages
+
+## Layout
+
+- `layouts/_default/baseof.html` — page skeleton (head, header, footer).
+- `layouts/partials/` — `head.html`, `header.html`, `footer.html`.
+- `layouts/index.html` — home (sprout image + post list); `single.html` — a post; `list.html` — section pages.
+- `assets/css/main.css` — the CSS. The top nav is driven by `[[menu.main]]` in `hugo.toml`.
 

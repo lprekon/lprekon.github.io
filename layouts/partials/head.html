@@ -1,0 +1,18 @@
+{{ $title := cond .IsHome site.Title (printf "%s · %s" .Title site.Title) }}
+{{ $description := cond .IsHome (site.Params.description) (.Description | default site.Params.description) }}
+{{ $css := resources.Get "css/main.css" | minify | fingerprint }}
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ $title }}</title>
+  {{ with $description }}<meta name="description" content="{{ . }}">{{ end }}
+  {{ with site.Params.color }}<meta name="theme-color" content="{{ . }}">{{ end }}
+  {{ if fileExists "static/favicon.png" }}
+    <link rel="icon" type="image/png" href="{{ "favicon.png" | relURL }}">
+  {{ end }}
+  <link rel="stylesheet" href="{{ $css.RelPermalink }}" integrity="{{ $css.Data.Integrity }}">
+  {{ with .OutputFormats.Get "rss" }}
+    <link rel="alternate" type="application/rss+xml" title="{{ site.Title }}" href="{{ .Permalink }}">
+  {{ end }}
+  {{ template "_internal/opengraph.html" . }}
+</head>

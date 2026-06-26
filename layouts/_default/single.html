@@ -1,0 +1,17 @@
+{{ define "main" }}
+  <article>
+    <h1 class="page-title">{{ .Title }}</h1>
+    {{ if not .Date.IsZero }}
+      <p class="page-meta"><time datetime="{{ .Date.Format "2006-01-02" }}">{{ .Date.Format "January 2, 2006" }}</time></p>
+    {{ end }}
+    {{ if and (.Params.toc | default true) .Fragments.Headings }}
+      <nav class="toc" aria-label="Table of contents">
+        <p class="toc-title">Contents</p>
+        {{ .TableOfContents }}
+      </nav>
+    {{ end }}
+    <div class="content">
+      {{ .Content }}
+    </div>
+  </article>
+{{ end }}
