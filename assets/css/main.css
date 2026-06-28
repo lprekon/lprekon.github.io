@@ -248,3 +248,32 @@ hr {
   font-size: 0.85rem;
   text-align: center;
 }
+
+/* Footnote hover tooltips (text injected by footnote-tooltip.js) */
+.has-footnote-tooltip {
+  position: relative;
+}
+.has-footnote-tooltip:hover::after,
+.has-footnote-tooltip:focus::after {
+  content: attr(data-footnote);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 0.4rem;
+  width: max-content;
+  max-width: 18rem;
+  padding: 0.5rem 0.65rem;
+  background: var(--text);
+  color: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: normal;
+  line-height: 1.4;
+  text-align: left;
+  white-space: normal;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+}
