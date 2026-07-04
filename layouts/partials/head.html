@@ -4,6 +4,15 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>
+    // Apply the saved color theme before first paint to avoid a flash.
+    (function () {
+      var p = localStorage.getItem("theme");
+      if (p === "light" || p === "dark") {
+        document.documentElement.setAttribute("data-theme", p);
+      }
+    })();
+  </script>
   <title>{{ $title }}</title>
   {{ with $description }}<meta name="description" content="{{ . }}">{{ end }}
   {{ with site.Params.color }}<meta name="theme-color" content="{{ . }}">{{ end }}

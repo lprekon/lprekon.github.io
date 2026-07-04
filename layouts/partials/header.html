@@ -1,12 +1,13 @@
 <header class="site-header">
   <h1 class="site-title"><a href="{{ "/" | relURL }}">{{ site.Title }}</a></h1>
   {{ with site.Params.description }}<p class="site-tagline">{{ . }}</p>{{ end }}
-  {{ with site.Menus.main }}
-    <nav class="site-nav">
+  <nav class="site-nav">
+    {{ with site.Menus.main }}
       {{ range . }}
         {{ $active := or ($.IsMenuCurrent "main" .) ($.HasMenuCurrent "main" .) }}
         <a href="{{ .URL | relLangURL }}"{{ if $active }} class="active"{{ end }}>{{ .Name }}</a>
       {{ end }}
-    </nav>
-  {{ end }}
+    {{ end }}
+    <button type="button" class="theme-toggle" aria-label="Switch color theme" title="Switch color theme"></button>
+  </nav>
 </header>

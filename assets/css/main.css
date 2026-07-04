@@ -22,8 +22,10 @@
 @media (min-width: 1200px) { :root { font-size: 18px; } }
 @media (min-width: 1600px) { :root { font-size: 22px; } }
 
+/* Dark palette: applied when the OS prefers dark (unless the reader has
+   explicitly chosen light), or when the reader has explicitly chosen dark. */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #23201c;
     --text: #e4ddcf;
     --muted: #a99e8a;
@@ -32,6 +34,16 @@
     --border: #3a352d;
     --inline-code-bg: #2f2b24;
   }
+}
+
+:root[data-theme="dark"] {
+  --bg: #23201c;
+  --text: #e4ddcf;
+  --muted: #a99e8a;
+  --accent: #9cbf88;
+  --accent-hover: #b6d3a4;
+  --border: #3a352d;
+  --inline-code-bg: #2f2b24;
 }
 
 * { box-sizing: border-box; }
@@ -95,6 +107,21 @@ a:hover { color: var(--accent-hover); }
 }
 .site-nav a:hover,
 .site-nav a.active { color: var(--accent); text-decoration: underline; }
+
+.theme-toggle {
+  font: inherit;
+  line-height: 1;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.1em 0.55em;
+  cursor: pointer;
+}
+.theme-toggle:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
 
 .content > * {
   margin-left: auto;
