@@ -1,0 +1,15 @@
+{{- $src := .Get "src" -}}
+{{- $alt := .Get "alt" | default "" -}}
+{{- $caption := .Get "caption" -}}
+{{- $ext := path.Ext $src | lower -}}
+{{- $isVideo := in (slice ".mp4" ".webm" ".ogv" ".mov") $ext -}}
+<figure>
+  {{- if $isVideo }}
+  <video src="{{ $src | safeURL }}" autoplay loop muted playsinline controls></video>
+  {{- else }}
+  <img class="zoomable" src="{{ $src | safeURL }}" alt="{{ $alt }}" loading="lazy">
+  {{- end }}
+  {{- with $caption }}
+  <figcaption class="media-caption">{{ . | markdownify }}</figcaption>
+  {{- end }}
+</figure>
