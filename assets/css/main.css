@@ -175,10 +175,12 @@ h1, h2, h3, h4, h5, h6 {
 .toc a { color: var(--text); text-decoration: underline; }
 .toc a:hover { color: var(--accent); }
 
-img { max-width: 100%; height: auto; }
+img, video { max-width: 100%; height: auto; }
 
 .content > p > img,
-.content > p:has(> img:only-child) {
+.content > p:has(> img:only-child),
+.content > video,
+.content > p:has(> video:only-child) {
   display: block;
   margin: 1.5rem auto;
 }
