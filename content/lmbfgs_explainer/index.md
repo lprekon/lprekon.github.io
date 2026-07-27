@@ -26,27 +26,15 @@ Newtonion optimization rests on the idea that any function minima must have a de
 [generalize to multiple variables]
 [problems with the Newtonian method]
 
-Let's examine this simple quadratic function
+Let's examine this simple quadratic function, along with its first and second derivatives
 
 {{< media src="generated_images/simple_quadratic.png" alt="quadratic function" >}}
 
-The blue lines show the true function, first derivative, and second derivative respectively, which we will assume are unknown; we only know the values at the points we evaluate. The orange line shows that the minimum of the true function is the root of the first derivative
+Pretend we don't know the true shape of $f(x)$, we only know the value of it and its first and second derivatives at the point we've evaluated - the red dot. Our goal is to find the minimum of the function, shown with the orange line. Our first point is $x = 3.5$ at the red dot. We learn that the derivative at this point is positive, meaning the function minimum must be to left, at a lower value of $x$. Under a first-order optimization algorithm like gradient descent, this is all the information we could glean; our next step would be to reduce $x$ a small amount and repeat. 
 
-Our goal is to find the minimum of the function, shown with the orange line. Our first point is $x = 3.5$ at the red dot. We learn that the derivative at this point is positive, meaning the function minimum must be to left, at a lower value of $x$. Under a first-order optimization algorithm like gradient descent, this is all the information we could glean; our next step would be to reduce `x` a small amount and repeat. 
-
-But let us now *assume* the true function we're trying to minimize is quadratic (remember we're pretending like we can't see the blue line). In that case, the first derivative must be linear, and its slope equals the second derivative. Then we just solve a simple $y = mx + b$ equation to find where the derivative is zero, and we have know the function minimum[^1]
+But let us now *assume* the true function we're trying to minimize is quadratic (still pretending like we can't see the blue lines). In that case, the first derivative must be linear, and its slope equals the second derivative. Then we just solve a simple $y = mx + b$ equation to find where the derivative is zero, and we know the function minimum[^1]. Indeed we can see that the minimum of $f(x)$ is at the root of $f\prime$
 
 [^1]: The minimum must be at a point with zero derivative. If the derivative at some point isn't zero, then it can't be the minimum because there is some direction in whcih the function continues to decrease
-
-More formally, lets approximate the true function with a a second-order [Taylor Expansion](https://en.wikipedia.org/wiki/Taylor_series):
-
-{{< media src="generated_images/second_taylor.png" alt="taylor series" >}}
-
-Our goal is to find the point where the derivative equals zero, so
-
-{{< media src="generated_images/step_calculation.png" alt="formula for step" >}}
-
-Then the minimum of $f$ is at $x_{\min} = x + s$, where $s$ is our step size of $\frac{f'(x)}{f''(x)}$. 
 
 Newtonion optimization uses the curvature of the function to estimate where the minimum *ought* to be, assuming the function is quadratic. Even if it's not a perfect bowl, newtonion optimization can still find the minimum quickly. Let's see what that looks like in practice.
 
@@ -60,5 +48,24 @@ Despite its apparent superiority, newtonion optimization has a couple drawbacks,
 
 {{< media src="media/videos/lmbfgs_explainer/1080p60/SinusoidalValley.mp4" caption="$f(x) = \sin(x) + \sin(y)$" >}}
 
-Here, gradient descent is able to find the minimum but Newtonian descent quickly gets stuck in a saddle point.
+Here, gradient descent is able to find the minimum but Newtonian optimization quickly gets stuck in a saddle point. This function is incredibly poorly approximated by a quadratic, so this is a worst-case scenario. 
 
+Newtonion optimization has one additional drawback, which will be present no matter how close the true function is to a quadratic and motivates the creation of BFGS. To see it, lets walk through the math.
+
+In order to derive the algorithm for Newtonian optimization, lets start by approximating the true function with a a second-order [Taylor Expansion](https://en.wikipedia.org/wiki/Taylor_series):
+
+{{< media src="generated_images/second_taylor.png" alt="taylor series" >}}
+
+We said above that the minimum of $f(x+s)$ must be at a root of $f\prime$, so to find our step size, set the derivative of $f$ equal to $0$
+
+{{< media src="generated_images/step_calculation.png" alt="formula for step" >}}
+
+Then the minimum of $f$ is at $x_{\min} = x + s$, where $s$ is our step size of $-\frac{f\prime(x)}{f\prime \prime(x)}$. 
+
+Lets generalize this to functions of multiple variables. $f\prime(x)$ becomes the [Jacobian](https://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant) $∇f$, a vector of partial first derivatives. $f\prime \prime(x)$ becomes the [Hessian](https://en.wikipedia.org/wiki/Hessian_matrix) $B$, a matrix of partial second derivatives. We now have
+
+{{< media src="generated_images/multivar_step_calculation_p1.png" alt="formula for step in multiple variables" >}}
+
+Now that our second derivative term is a matrix instead of a scalar, we can no longer divide by it; we have to invert it.
+
+{{< media src="generated_images/multivar_step_calculation_p2.png" alt="formula for step in multiple variables" >}}
