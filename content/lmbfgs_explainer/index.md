@@ -69,3 +69,16 @@ Lets generalize this to functions of multiple variables. $f\prime(x)$ becomes th
 Now that our second derivative term is a matrix instead of a scalar, we can no longer divide by it; we have to invert it.
 
 {{< media src="generated_images/multivar_step_calculation_p2.png" alt="formula for step in multiple variables" >}}
+
+And this brings us to the major problem with Newtonion optimization - that pesky $B^{-1}$. Gradient descent is only concerned with the Jacobian $∇f$ to determine each step, which scales lineraly with the number of inputs. But the Hessian $B$ grows quadratically with the number of inputs[^2]. Finding the Hessian for a function of one million variables (not very large by modern machine learning standards) would require calculating five-hundred-trillion unique partial second derivatives every step. The Hessian *then* needs to be inverted on each step, which is $O(n^{2.37})$ in the best case[^3].
+
+[^2]: The Hessian [must be symmetric](https://en.wikipedia.org/wiki/Symmetry_of_second_derivatives), meaning the Hessian for a function of $n$ inputs has $\frac{(n-1)^2}{2} + n$ unique elements, instead of $n^2$
+
+[^3]: and thats $O(n^{2.37})$ with respect to the number of elements in the matrix. A five-hundred-trillion element matrix takes between $5.32e27$ and $1.25e35$ operations to invert. On a CPU running three billion operations per second, the sun would explode before you were even 1% of the way there
+
+As amazing as Newtonion optimization is, it suffers from a terrible case of combinatorial explosion, and is impractical for all but the smalles problems
+
+## Enter: Broyden, Fletcher, Goldfarb, and Shanno
+
+We are now thouroughly convinced that incorporating second-derivative information into our optimization algorithm is awesome, but doing so naively is impractical. We must enter the world of [Quasi-Newtonion methods](https://en.wikipedia.org/wiki/Quasi-Newton_method) which seek to follow the wisdom of Newtonion Optimization without fully calculating the Hessian on each optimization step.
+
