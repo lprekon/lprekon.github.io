@@ -20,6 +20,11 @@
     <link rel="icon" type="image/png" href="{{ "favicon.png" | relURL }}">
   {{ end }}
   <link rel="stylesheet" href="{{ $css.RelPermalink }}" integrity="{{ $css.Data.Integrity }}">
+  {{/* Force content render so math render hooks set the hasMath flag before we check it. */}}
+  {{ with .Content }}{{ end }}
+  {{ if .Store.Get "hasMath" }}
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" integrity="sha384-nB0miv6/jRmo5UMMR1wu3Gz6NLsoTkbqJghGIsx//Rlm+ZU03BU6SQNC66uf4l5+" crossorigin="anonymous">
+  {{ end }}
   {{ with .OutputFormats.Get "rss" }}
     <link rel="alternate" type="application/rss+xml" title="{{ site.Title }}" href="{{ .Permalink }}">
   {{ end }}

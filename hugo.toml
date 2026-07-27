@@ -4,6 +4,13 @@ title = 'CodeFarming'
 markup.goldmark.renderer.unsafe = true
 enableRobotsTXT = true
 
+# Inline/block math via KaTeX (rendered at build time by transform.ToMath).
+[markup.goldmark.extensions.passthrough]
+enable = true
+[markup.goldmark.extensions.passthrough.delimiters]
+inline = [['\(', '\)'], ['$', '$']]
+block  = [['\[', '\]'], ['$$', '$$']]
+
 [params]
 description = "write-ups on systems and performance engineering, machine learning, and anything else worth spilling ink over."
 color = '#4a6b3d'
