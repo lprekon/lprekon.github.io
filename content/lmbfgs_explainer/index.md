@@ -129,4 +129,17 @@ We are now thouroughly convinced that incorporating second-derivative informatio
 
 The BFGS algorithm works as follows. Start with an initial estimate of $H = I$, a starting $x$ chosen arbitrarily, and let $k$ be the current iteration of the algorithm, then
 
+0. Calculate $f(x_k)$ and $\nabla f_k$
+1. Determine step direction $s_k = -H_k \nabla f_k$ 
+2. Let $x_{k+1} = x_k + s_k$ (we actually scale $s_k$ by some value $\alpha$, but we'll set that aside for the moment)
+3. Calculate $f(x_{k+1})$ and $\nabla f_{k+1}$ 
+4. Let $y_k = \nabla f_{k+1} - \nabla f_{k}$
+
+At this point, from our initial position $x_k$, we've determined a step direction $s_k$, stepped to $x_{k+1}$, and observed the change in slope of the function $y_k$. We will now use this information to update $H$, our estimate of the inverse Hessian with the following equation
+
+5. $H_{k+1} = H_k + \frac{(s_{k}^\top y_k + y_{k}^\top H_k y_k)(s_k s_{k}^\top)}{(s_{k}^\top y_k)^2} - \frac{H_k y_k s_{k}^\top + s_k y_{k}^\top H_k}{s_{k}^\top y_k}$
+
+After which we return to step 1 and repeat, now with a better understanding of the curvature of the function thanks to our updated $H$. If you think that update equation fell from the sky bestowed upon us by aliens, you are not alone. While there are [plenty](https://en.wikipedia.org/wiki/Broyden–Fletcher–Goldfarb–Shanno_algorithm#Algorithm) of [places](https://machinelearningmastery.com/bfgs-optimization-in-python/) on [the internet](https://www.cs.purdue.edu/homes/jhonorio/16spring-cs52000-quasinewton.pdf) that will tell you *about* the BFGS algorithm, none (in my opinion) do an adquate job explaining where it comes from. We will now derive the BFGS update formula.
+
+
 
