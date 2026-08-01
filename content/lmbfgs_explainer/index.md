@@ -125,5 +125,8 @@ As amazing as Newtonion optimization is, it suffers from a terrible case of comb
 
 ## Enter: Broyden, Fletcher, Goldfarb, and Shanno
 
-We are now thouroughly convinced that incorporating second-derivative information into our optimization algorithm is awesome, but doing so naively is impractical. We must enter the world of [Quasi-Newtonion methods](https://en.wikipedia.org/wiki/Quasi-Newton_method) which seek to follow the wisdom of Newtonion Optimization without fully calculating the Hessian on each optimization step. So instead of calculating the full 
+We are now thouroughly convinced that incorporating second-derivative information into our optimization algorithm is awesome, but doing so naively is impractical. We must enter the world of [Quasi-Newtonion methods](https://en.wikipedia.org/wiki/Quasi-Newton_method) which seek to follow the wisdom of Newtonion Optimization without fully calculating the Hessian on each optimization step. The BFGS algorithm maintains an approximation $H = B^{-1}$ which gets updated at each step, saving us from having to invert the Hessian for each and every step.
+
+The BFGS algorithm works as follows. Start with an initial estimate of $H = I$, a starting $x$ chosen arbitrarily, and let $k$ be the current iteration of the algorithm, then
+
 
