@@ -127,19 +127,166 @@ As amazing as Newtonion optimization is, it suffers from a terrible case of comb
 
 We are now thouroughly convinced that incorporating second-derivative information into our optimization algorithm is awesome, but doing so naively is impractical. We must enter the world of [Quasi-Newtonion methods](https://en.wikipedia.org/wiki/Quasi-Newton_method) which seek to follow the wisdom of Newtonion Optimization without fully calculating the Hessian on each optimization step. The BFGS algorithm maintains an approximation $H = B^{-1}$ which gets updated at each step, saving us from having to invert the Hessian for each and every step.
 
-The BFGS algorithm works as follows. Start with an initial estimate of $H = I$, a starting $x$ chosen arbitrarily, and let $k$ be the current iteration of the algorithm, then
+The BFGS algorithm works as follows. Starting with an initial estimate of $H = I$, a starting $x$ chosen arbitrarily, and let $k$ be the current iteration of the algorithm, then
 
-0. Calculate $f(x_k)$ and $\nabla f_k$
-1. Determine step direction $s_k = -H_k \nabla f_k$ 
-2. Let $x_{k+1} = x_k + s_k$ (we actually scale $s_k$ by some value $\alpha$, but we'll set that aside for the moment)
-3. Calculate $f(x_{k+1})$ and $\nabla f_{k+1}$ 
-4. Let $y_k = \nabla f_{k+1} - \nabla f_{k}$
+<div clas = "math">
 
-At this point, from our initial position $x_k$, we've determined a step direction $s_k$, stepped to $x_{k+1}$, and observed the change in slope of the function $y_k$. We will now use this information to update $H$, our estimate of the inverse Hessian with the following equation
+$$
+\def\arraystretch{1.5}
+\begin{array}{cl}
+1.&\text{Determine step direction } p_k = -H_k \nabla f_k \\
+2.&\text{Perform a line search in direction } p_k \text { to find step } s_k = \alpha _k p_k \text{ (more on this later)} \\
+3.&\text{Update } x_{k+1} = x_k + s_k, \text{ calculate } f(x_{k+1}), \nabla f_{k+1} \\
+4.&\text{Let } y_k = \nabla f_{k+1} - \nabla f_k \\
+5.&\text{Update estimate of inverse Hessian }\\
+& H_{k+1} = H_k + \frac{(s_{k}^\top y_k + y_{k}^\top H_k y_k)(s_k s_{k}^\top)}{(s_{k}^\top y_k)^2} - \frac{H_k y_k s_{k}^\top + s_k y_{k}^\top H_k}{s_{k}^\top y_k}
+\end{array}
+$$
 
-5. $H_{k+1} = H_k + \frac{(s_{k}^\top y_k + y_{k}^\top H_k y_k)(s_k s_{k}^\top)}{(s_{k}^\top y_k)^2} - \frac{H_k y_k s_{k}^\top + s_k y_{k}^\top H_k}{s_{k}^\top y_k}$
+</div>
 
-After which we return to step 1 and repeat, now with a better understanding of the curvature of the function thanks to our updated $H$. If you think that update equation fell from the sky bestowed upon us by aliens, you are not alone. While there are [plenty](https://en.wikipedia.org/wiki/Broyden–Fletcher–Goldfarb–Shanno_algorithm#Algorithm) of [places](https://machinelearningmastery.com/bfgs-optimization-in-python/) on [the internet](https://www.cs.purdue.edu/homes/jhonorio/16spring-cs52000-quasinewton.pdf) that will tell you *about* the BFGS algorithm, none (in my opinion) do an adquate job explaining where it comes from. We will now derive the BFGS update formula.
+After which we return to step 1 and repeat, now with a better understanding of the curvature of the function thanks to our updated $H$. If you think that update equation in step 5 fell from the sky bestowed upon us by aliens, you are not alone. While there are [plenty](https://en.wikipedia.org/wiki/Broyden–Fletcher–Goldfarb–Shanno_algorithm#Algorithm) of [places](https://machinelearningmastery.com/bfgs-optimization-in-python/) on [the internet](https://www.cs.purdue.edu/homes/jhonorio/16spring-cs52000-quasinewton.pdf) that will tell you *about* the BFGS algorithm, none (in my opinion) do an adquate job explaining where it comes from. 
+
+We will now derive the BFGS update formula, prove that this works and/or provide some intution as to *why* this works.
+
+We start from the acknowledgement that $H_k$ is an imperfect approximation of the true inverse Hessian of $f$[^5]. The inverted Hessian *ought* to explain the change in gradient observed between positions $x_k$ and $x_{k+1}$ satisfing the [Secant Equation](https://en.wikipedia.org/wiki/Secant_method)
+
+[^5]: And unless $f$ was truly merely quadratic, it doesn't even have a *single* true Hessian, but that's besides the point
+
+<div class = "math">
+
+$Hy = s$
+
+</div>
+
+But since $H_k$ is an imperfect approximation, it presumably does not...
+
+<div class = "math">
+
+$H_k y_k \neq s_k$
+
+</div>
+
+So our goal is to find a new matrix $H_{k+1}$ that *does* satisfy the equation
+
+<div class = "math">
+
+$H_{k+1} y_k = s_k$
+
+</div>
+
+This forms a simple [system of linear equations](https://en.wikipedia.org/wiki/System_of_linear_equations) that ought to be familiar to most folks who've studied linear algebra [^6]. We run into a wrinkle though: our system is underspecified. We have a system of $n$ equations, but $  \frac{n(n-1)}{2}$ free variables[^7]. There are an infinite number of possible new $H$s that could satisfy our secant equation. 
+
+[^6]: if it's not, see [Gaussian elimination](https://en.wikipedia.org/wiki/Gaussian_elimination) for an explanation of how systems of equations can be viewed as matrix algebra, and vice versa
+
+[^7]: $H$ is the inverse of $B$, and $B$ must be symmetric per footnote 3, so $H$ must be symmetric
+
+Of those infinite $H$s, lets pick the one thats closest to $H_k$. Our estimate of the inverted Hessian builds up curvature information as we iterate, and we'd like to preserve as much of that information as possible. The candidate $H$ we choose for $H_{k+1}$ shall be the matrix that changes *as little as possible* from $H_k$ while still satisfying our criterea.
+
+In order to measure the difference, we might go with a simple Frobenius norm
+
+<div class="math">
+
+$$
+\lVert M \rVert _F = \sqrt{\sum_i \sum_j m_{ij}^2}
+$$
+
+</div>
+
+However the Forbenius norm is sensitive to the elements of $x$ being measured in different magnitudes; If, say, $x_0$ was in meters but $x_1$ was in centimeters, a Frobenius norm might over-index on keeping the higher absolute value elements similar at the expense of other elements. So rather than a Frobenius norm, we'll use a weighted Frobenius norm.
+
+Let $W$ be a matrix of weights. Then the weighted Frobenius norm is
+
+<div class="math">
+
+$$
+\lVert M \rVert _W = \lVert W^{\frac{1}{2}} M W^{\frac{1}{2}} \rVert _F
+$$
+
+</div>
 
 
+We want to stay as close to $H_k$ as possible, so our goal is to find $H$ which minimizes $\lVert H - H_k \lVert _W$ subject to $Hy_k = s$. 
 
+We are now ready to begin our derivation of the update algorithm[^8]
+
+[^8]: Had we picked a measure of closeness other than a weighted Frobenius norm, we wouldn't be working with BFGS but with [DFP](https://en.wikipedia.org/wiki/Davidon–Fletcher–Powell_formula), [SR1](https://en.wikipedia.org/wiki/Symmetric_rank-one), etc. There are a variety of quasi-newton methods out there, and this choice of "measure of closeness" is one of the primary differentiators
+
+### Step 1: Change of Variable
+
+Since we're going to weight our $H$s as part of measuring distance, lets talk about the weighted matrices
+
+<div class="math">
+
+$$
+\begin{array}{c}
+\hat{H} = W^{\frac{1}{2}} H W^{\frac{1}{2}} \\
+\hat{H_k} = W^{\frac{1}{2}} H_k W^{\frac{1}{2}} \\
+\end{array}
+$$
+
+</div>
+
+Then notice that 
+
+<div class="math">
+
+$$
+\begin{array}{lc}
+&Hy_k=s_k \\
+\text{becomes}&\\
+&(W^{-\frac{1}{2}}\hat{H}W^{-\frac{1}{2}})y_k = s_k
+\end{array}
+$$ 
+ 
+</div>
+ 
+when we back-substitute for $\hat{H}$. Left-multiplying both sides by $W^{\frac{1}{2}}$ gives us $\hat{H}(W^{-\frac{1}{2}}y_k) = (W^{\frac{1}{2}}s_k)$, so
+
+<div class="math">
+
+$$
+\begin{array}{c}
+\hat{y} = W^{-\frac{1}{2}}y_k \\
+\hat{s} = W^{\frac{1}{2}}s_k
+\end{array}
+$$
+
+</div>
+
+Now our measure of distance is
+
+<div class="math">
+
+$$
+\lVert H - H_k \rVert _W = \lVert \hat{H} - \hat{H_k} \rVert _F
+$$
+
+</div>
+ 
+And the secant condition we must satisfy is
+
+<div class="math">
+
+$$
+\hat{H}\hat{y} = \hat{s}
+$$
+
+</div>
+
+Now lets talk about that weight matrix $W$. We're never going to actually construct $\hat{H} = W^{\frac{1}{2}}HW^{\frac{1}{2}}$, so the choice of weight matrix is purely algebraic. Let's choose as our weight matrix $G$, the[^9] average Hessian of $f$
+
+<div class="math">
+
+$$
+\begin{array}{c}
+W=G \\ \text{such that} \\ y_k = Gs_k
+\end{array}
+$$
+
+</div>
+
+(Note that $G$ is paired with $s$ where $H$ was paired with $y$. $G$ is the theoretical true Hessian, not the inverse Hessian like $H$)
+
+[^9]: (theoretical)
+ 
