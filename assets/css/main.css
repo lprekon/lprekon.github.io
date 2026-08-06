@@ -258,6 +258,33 @@ video {
   cursor: zoom-in;
 }
 
+/* Theme-aware images: render both variants, show the one matching the active
+   theme. Mirrors the exact cascade used by the color variables above so it
+   respects both the OS preference and the manual three-way theme toggle. */
+.themed-dark {
+  display: none;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .themed-light {
+    display: none;
+  }
+  :root:not([data-theme="light"]) .themed-dark {
+    display: inline-block;
+  }
+}
+:root[data-theme="dark"] .themed-light {
+  display: none;
+}
+:root[data-theme="dark"] .themed-dark {
+  display: inline-block;
+}
+:root[data-theme="light"] .themed-light {
+  display: inline-block;
+}
+:root[data-theme="light"] .themed-dark {
+  display: none;
+}
+
 .lightbox {
   position: fixed;
   inset: 0;
