@@ -26,7 +26,7 @@ Newtonion optimization rests on two ideas:
 
 Let's examine this simple quadratic function, along with its first and second derivatives
 
-{{< media src="generated_images/simple_quadratic.png" alt="quadratic function" >}}
+{{< media src="generated_images/simple_quadratic.png" alt="quadratic function" themed="true">}}
 
 Pretend we don't know the true shape of $f(x)$; we have evaluated $f$ at the red dot ($x = 3.5$)and have calculated the value of its first and second derivatives at that point. Our goal is to find the minimum of the function, shown with the orange line. We learn that the derivative at this point is positive, meaning the function minimum must be to left, at a lower value of $x$. Under a first-order optimization algorithm like gradient descent, this is all the information we could glean; our next step would be to reduce $x$ a small amount and repeat. 
 
@@ -276,6 +276,8 @@ $$
 
 Now lets talk about that weight matrix $W$. We're never going to actually construct $\hat{H} = W^{\frac{1}{2}}HW^{\frac{1}{2}}$, so the choice of weight matrix is purely algebraic. Let's choose as our weight matrix $G$, the[^9] average Hessian of $f$
 
+[^9]: (theoretical)
+
 <div class="math">
 
 $$
@@ -288,5 +290,107 @@ $$
 
 (Note that $G$ is paired with $s$ where $H$ was paired with $y$. $G$ is the theoretical true Hessian, not the inverse Hessian like $H$)
 
-[^9]: (theoretical)
- 
+Using this relationship between $y_k$, $s_k$, and our chosen weight matrix, we redefine $\hat{y}$
+
+<div class="math">
+
+$$
+\def\arraystretch{1.5}
+\begin{array}{ccl}
+\hat{y} & = & W^{-\frac{1}{2}}y_k \\
+\hat{y} & = & G^{-\frac{1}{2}}y_k \\ 
+\hat{y} & = & G^{-\frac{1}{2}}Gs_k \\
+\hat{y} & = & G^{\frac{1}{2}}s_k \\
+\end{array}
+$$
+
+</div>
+
+We then substitue the value of $G$ in for $W$ in our definition of $\hat{s}$ and we see...
+
+<div class="math">
+
+$$
+\def\arraystretch{1.5}
+\begin{array}{ccl}
+\hat{s} &=& W^{\frac{1}{2}}s_k \\
+\hat{s} &=& G^{\frac{1}{2}}s_k\\
+\hat{s} &=& \hat{y}
+\end{array}
+$$
+
+</div>
+
+Both $\hat{y}$ and $\hat{s}$ equal $G^{\frac{1}{2}}s_k$. Under our change of variable, the secant condition which our candidate $H$ must satisfy is
+
+<div class="math">
+
+$$
+\hat{H}\hat{y} = \hat{y}
+$$
+
+</div>
+
+So we're looking for a matrix $\hat{H}$ which maps $\hat{y}$ to itself, still mindful of staying as close to $\hat{H}$ as possible. Our method will be thus: cancel out $\hat{H}_k$'s current action on $\hat{y}$, then construct a matrix that maps $\hat{y}$ as we desire [^10].
+
+[^10]: if this also seems plucked from the sky, bear with me. It will all work out
+
+
+
+
+### Step 2: Cancel Action On $\hat{y}$ 
+
+Let $Q$ be a matrix that projects onto the subspace spanned by $\hat{y}$. In other words, for any vector $x$, the result of $Qx$ will be the portion of $x$ parallel to $\hat{y}$
+
+{{< media src="generated_images/project_onto_y_p1.png" alt="Projecting the vector x onto the subspace spanned by y" themed="true">}}
+
+Then lets define $x$ in terms of the portional parallel to $\hat{y}$ - $Qx$ - and the remaining part, which we'll call $z$
+
+<div class="math">
+
+$$
+x = Qx + z
+$$
+
+</div>
+
+if we solve for $z$ - that portion of $x$ orthagonal to $\hat{y}$, we get
+
+<div class="math">
+
+$$
+\def\arraystrech{1.5}
+\begin{array}{ll}
+z &= x - Qx \\
+&= (I - Q)x \\
+\end{array}
+$$
+
+</div>
+
+So for any matrix $Q$ which projects onto a subspace $L$, the matrix $I-Q$ will project onto the subspace orthogonal to $L$. Lets call this complimentary matrix $P$
+
+<div class="math">
+
+$$
+P = I - Q = I - \frac{\hat{y}\hat{y}^{\top}}{\hat{y}^{\top}\hat{y}}
+$$
+
+</div>
+
+Since $P$ projects onto a subspace orthogonal to $Span\{\hat{y}\}$, $P\hat{y} = 0$. We now have the mechanism to cancel action on $\hat{y}$. Our matrix for part 2 - something *like* $\hat{H}+k$ that maps $\hat{y}$ to 0 -  will be
+
+<div class="math">
+
+$$
+P\hat{H}_kP
+$$
+
+</div>
+
+---- PUT ANOTHER GRAPH HERE ----
+
+The right $P$ kills all action on $\hat{y}$ and maps it to 0. The left $P$ ensures that this matrix remains symmetric.
+
+### Step 3: Map $\hat{y}$ to $\hat{y}$
+
