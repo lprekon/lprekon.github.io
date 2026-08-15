@@ -443,14 +443,13 @@ hr {
   text-align: center;
 }
 
-/* Footnote hover tooltips (text injected by footnote-tooltip.js) */
+/* Footnote hover tooltips (markup injected by footnote-tooltip.js) */
 .has-footnote-tooltip {
   position: relative;
 }
 
-.has-footnote-tooltip:hover::after,
-.has-footnote-tooltip:focus::after {
-  content: attr(data-footnote);
+.footnote-tooltip {
+  display: none;
   position: absolute;
   bottom: 100%;
   left: 50%;
@@ -463,12 +462,37 @@ hr {
   color: var(--bg);
   border: 1px solid var(--border);
   border-radius: 6px;
+  /* The tooltip hangs off a <sup>, so reset the inherited superscript type. */
   font-size: 0.85rem;
   font-weight: normal;
   line-height: 1.4;
+  vertical-align: baseline;
   text-align: left;
   white-space: normal;
   z-index: 10;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
   pointer-events: none;
+}
+
+.has-footnote-tooltip:hover>.footnote-tooltip,
+.has-footnote-tooltip:focus-within>.footnote-tooltip {
+  display: block;
+}
+
+.footnote-tooltip-p {
+  display: block;
+}
+
+.footnote-tooltip-p+.footnote-tooltip-p {
+  margin-top: 0.5rem;
+}
+
+/* Inverted panel: links and code have to follow the tooltip's colors. */
+.footnote-tooltip a {
+  color: inherit;
+}
+
+.footnote-tooltip code {
+  background: none;
+  color: inherit;
 }

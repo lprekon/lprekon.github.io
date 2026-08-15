@@ -1,0 +1,11 @@
+{{- /*
+  Table of contents, built from .Fragments.Headings rather than Hugo's built-in
+  .TableOfContents so that inline math in headings renders: render hooks (and so
+  render-passthrough.html) never run on the built-in ToC, which emits the raw
+  "$...$" source instead.
+
+  @param {page} . The page.
+*/ -}}
+<nav id="TableOfContents">
+  {{- partial "toc-list.html" .Fragments.Headings -}}
+</nav>

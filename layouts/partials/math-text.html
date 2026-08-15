@@ -1,0 +1,28 @@
+{{- /*
+  Render a heading title, converting $...$ spans to KaTeX.
+
+  Hugo hands us heading text with inline markdown already rendered but the
+  passthrough extension NOT applied, so math arrives as raw source. Text outside
+  the delimiters is therefore HTML and passes through untouched.
+
+  @param {string} . The heading title.
+*/ -}}
+{{- $parts := split . "$" -}}
+{{- if eq (mod (len $parts) 2) 0 -}}
+  {{- /* Odd number of delimiters: not math, leave the title alone. */ -}}
+  {{- . | safeHTML -}}
+{{- else -}}
+  {{- range $i, $part := $parts -}}
+    {{- if eq (mod $i 2) 1 -}}
+      {{- with try (transform.ToMath $part (dict "displayMode" false "output" "htmlAndMathml")) -}}
+        {{- with .Err -}}
+          {{ errorf "Failed to render math in heading %q: %s" $ . }}
+        {{- else -}}
+          {{ .Value }}
+        {{- end -}}
+      {{- end -}}
+    {{- else -}}
+      {{- $part | safeHTML -}}
+    {{- end -}}
+  {{- end -}}
+{{- end -}}
