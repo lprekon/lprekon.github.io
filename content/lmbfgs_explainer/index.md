@@ -41,7 +41,7 @@ Here's visual representation of how newtonion optimization finds the minimum of 
 
 Using gradient descent to find the minimum requires walking down the canyon walls - initially moving *away* from the minimum - before tracing a path along the valley floor. In this demonstration, Gradient descent takes 12,000 steps to reach the minimum, while newtonion optimization gets there in only 4 steps.
 
-Despite this incredible feat, Newtonion optimization has a couple drawbacks, which is why its less commonly used than gradient descent. The first is its sensitivity to the curvature of the function to be to minimized. If the function is not well approximated by a quadratic curve, then Newtonion optimization can give suboptimal results.
+Despite this incredible feat, pure Newtonion optimization has a couple drawbacks, which is why it's almost never used in practice. The first is its sensitivity to the curvature of the function to be to minimized. If the function is not well approximated by a quadratic curve, then Newtonion optimization can give suboptimal results.
 
 {{< media src="media/videos/lmbfgs_explainer/1080p60/SinusoidalValley.mp4" caption="$f(x) = \sin(x) + \sin(y)$" >}}
 
@@ -60,7 +60,7 @@ $f(x_0 + s) = f(x_0) + f'(x_0) * s + \frac{1}{2}f''(x_0) * s^2$
 [^2]: If you're unfamiliar with Taylor Series, you may recognize this equation from Physics class as the formula for the position $p$ of an object at some time $t$: $p(t) = p(t_0) + v t + \frac{1}{2} at^2$
 
 
-Where $x_0$ is a point at which we've evaluated $f$ and $s$ is a proposed step. We said above that the minimum of $f(x_0+s)$ must be at a root of $f'$, so we can find our step size by setting the derivative of $f$ equal to $0$
+Where $x_0$ is a point at which we've evaluated $f$ and $s$ is a proposed step. We said above that the minimum of $f(x_0+s)$ must be at a root of $f'$, so we can find the step that will bring us to the minimum by setting the derivative of $f$ equal to $0$
 
 
 <div class="math">
@@ -121,11 +121,11 @@ And this brings us to the major problem with Newtonion optimization - that pesky
 
 [^4]: and thats $O(n^{2.37})$ with respect to the number of elements in the matrix, not the number of inputs to the original function. A five-hundred-trillion element matrix takes between $5.32e27$ and $1.25e35$ operations to invert. On a CPU running three billion operations per second, the sun would explode before you were even 1% of the way there
 
-As amazing as Newtonion optimization is, it suffers from a terrible case of combinatorial explosion, and is impractical for all but the smalles problems
+As amazing as Newtonion optimization is, it suffers from a terrible case of combinatorial explosion, and is impractical for all but the smallest problems
 
 ## Enter: Broyden, Fletcher, Goldfarb, and Shanno
 
-We are now thouroughly convinced that incorporating second-derivative information into our optimization algorithm is awesome, but doing so naively is impractical. We must enter the world of [Quasi-Newtonion methods](https://en.wikipedia.org/wiki/Quasi-Newton_method) which seek to follow the wisdom of Newtonion Optimization without fully calculating the Hessian on each optimization step. The BFGS algorithm maintains an approximation $H = B^{-1}$ which gets updated at each step, saving us from having to invert the Hessian for each and every step.
+We are now thouroughly convinced that incorporating second-derivative information into our optimization algorithm is awesome in theory, but doing so naively is impractical. We must enter the world of [Quasi-Newtonion methods](https://en.wikipedia.org/wiki/Quasi-Newton_method) which seek to follow the wisdom of Newtonion Optimization without fully calculating the Hessian on each optimization step. The BFGS algorithm maintains an approximation $H \approx B^{-1}$ which gets updated at each step, saving us from having to calculate and then invert the Hessian for each and every step.
 
 The BFGS algorithm works as follows. Starting with an initial estimate of $H = I$, a starting $x$ chosen arbitrarily, and let $k$ be the current iteration of the algorithm, then
 
@@ -151,7 +151,7 @@ We will now derive the BFGS update formula, prove that this works and/or provide
 
 We start from the acknowledgement that $H_k$ is an imperfect approximation of the true inverse Hessian of $f$[^5]. The inverted Hessian *ought* to explain the change in gradient observed between positions $x_k$ and $x_{k+1}$ satisfing the [Secant Equation](https://en.wikipedia.org/wiki/Secant_method)
 
-[^5]: And unless $f$ was truly merely quadratic, it doesn't even have a *single* true Hessian, but that's besides the point
+[^5]: And unless $f$ was in fact quadratic, it doesn't even have a *single* true Hessian, but that's besides the point
 
 <div class = "math">
 
@@ -167,7 +167,7 @@ $H_k y_k \neq s_k$
 
 </div>
 
-So our goal is to find a new matrix $H_{k+1}$ that *does* satisfy the equation
+So our goal is to find a new matrix $H_{k+1}$ that *does* satisfy the equation, explaining the change in slope we just observed
 
 <div class = "math">
 
@@ -175,11 +175,13 @@ $H_{k+1} y_k = s_k$
 
 </div>
 
-This forms a simple [system of linear equations](https://en.wikipedia.org/wiki/System_of_linear_equations) that ought to be familiar to most folks who've studied linear algebra [^6]. We run into a wrinkle though: our system is underspecified. We have a system of $n$ equations, but $  \frac{n(n-1)}{2}$ free variables[^7]. There are an infinite number of possible new $H$s that could satisfy our secant equation. 
+This forms a simple [system of linear equations](https://en.wikipedia.org/wiki/System_of_linear_equations) that ought to be familiar to most folks who've studied linear algebra [^6]. We run into a wrinkle though: our system is underspecified. We have a system of $n$ equations, but $  \frac{n(n-1)}{2}$ free variables[^7]. For $n > 2$ there are an infinite number of possible new $H$s that could satisfy our secant equation[^8]. 
 
 [^6]: if it's not, see [Gaussian elimination](https://en.wikipedia.org/wiki/Gaussian_elimination) for an explanation of how systems of equations can be viewed as matrix algebra, and vice versa
 
 [^7]: $H$ is the inverse of $B$, and $B$ must be symmetric per footnote 3, so $H$ must be symmetric
+
+[^8]: And if $n<=2$ we might as well use another algorithm
 
 Of those infinite $H$s, lets pick the one thats closest to $H_k$. Our estimate of the inverted Hessian builds up curvature information as we iterate, and we'd like to preserve as much of that information as possible. The candidate $H$ we choose for $H_{k+1}$ shall be the matrix that changes *as little as possible* from $H_k$ while still satisfying our criterea.
 
@@ -208,9 +210,9 @@ $$
 
 We want to stay as close to $H_k$ as possible, so our goal is to find $H$ which minimizes $\lVert H - H_k \lVert _W$ subject to $Hy_k = s$. 
 
-We are now ready to begin our derivation of the update algorithm[^8]
+We are now ready to begin our derivation of the update algorithm[^9]
 
-[^8]: Had we picked a measure of closeness other than a weighted Frobenius norm, we wouldn't be working with BFGS but with [DFP](https://en.wikipedia.org/wiki/Davidon–Fletcher–Powell_formula), [SR1](https://en.wikipedia.org/wiki/Symmetric_rank-one), etc. There are a variety of quasi-newton methods out there, and this choice of "measure of closeness" is one of the primary differentiators
+[^9]: Had we picked a measure of closeness other than a weighted Frobenius norm, we wouldn't be working with BFGS but with [DFP](https://en.wikipedia.org/wiki/Davidon–Fletcher–Powell_formula), [SR1](https://en.wikipedia.org/wiki/Symmetric_rank-one), etc. There are a variety of quasi-newton methods out there, and this choice of "measure of closeness" is one of the primary differentiators
 
 ### Step 1: Change of Variable
 
@@ -274,9 +276,9 @@ $$
 
 </div>
 
-Now lets talk about that weight matrix $W$. We're never going to actually construct $\hat{H} = W^{\frac{1}{2}}HW^{\frac{1}{2}}$, so the choice of weight matrix is purely algebraic. Let's choose as our weight matrix $G$, the[^9] average Hessian of $f$
+Now lets talk about that weight matrix $W$. We're never going to actually construct $\hat{H} = W^{\frac{1}{2}}HW^{\frac{1}{2}}$, so the choice of weight matrix is purely algebraic. Let's choose as our weight matrix $G$, the[^10] average Hessian of $f$
 
-[^9]: (theoretical)
+[^10]: (theoretical)
 
 <div class="math">
 
@@ -331,9 +333,9 @@ $$
 
 </div>
 
-So we're looking for a matrix $\hat{H}$ which maps $\hat{y}$ to itself, still mindful of staying as close to $\hat{H}$ as possible. Our method will be thus: cancel out $\hat{H}_k$'s current action on $\hat{y}$, then construct a matrix that maps $\hat{y}$ as we desire [^10].
+So we're looking for a matrix $\hat{H}$ which maps $\hat{y}$ to itself, still mindful of staying as close to $\hat{H}$ as possible (and always symmetric). Our method will be thus: cancel out $\hat{H}_k$'s current action on $\hat{y}$, then construct a matrix that maps $\hat{y}$ as we desire [^11].
 
-[^10]: if this also seems plucked from the sky, bear with me. It will all work out
+[^11]: if this also seems plucked from the sky, bear with me. It will all work out
 
 
 
@@ -394,3 +396,4 @@ The right $P$ kills all action on $\hat{y}$ and maps it to 0. The left $P$ ensur
 
 ### Step 3: Map $\hat{y}$ to $\hat{y}$
 
+We now need a matrix that that maps $\hat{y}$ to itself. Two obvious choices present themselves: first is the identity matrix $I$, and second is $Q$, the matrix we just defined above which projects onto $span\{\hat{y}\}$. We want the one that minimizes the norm $\lVert\hat{H} - \hat{H_k}\rVert _F$, so let's investigate how each of these choices affect the Frobenius norm.
