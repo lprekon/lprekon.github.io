@@ -125,7 +125,7 @@ As amazing as Newtonion optimization is, it suffers from a terrible case of comb
 
 ## Enter: Broyden, Fletcher, Goldfarb, and Shanno
 
-We are now thouroughly convinced that incorporating second-derivative information into our optimization algorithm is awesome in theory, but doing so naively is impractical. We must enter the world of [Quasi-Newtonion methods](https://en.wikipedia.org/wiki/Quasi-Newton_method) which seek to follow the wisdom of Newtonion Optimization without fully calculating the Hessian on each optimization step. The BFGS algorithm maintains an approximation $H \approx B^{-1}$ which gets updated at each step, saving us from having to calculate and then invert the Hessian for each and every step.
+We are now thouroughly convinced that incorporating second-derivative information into our optimization algorithm is awesome in theory, but doing so naively is impractical. We must enter the world of [Quasi-Newtonion methods](https://en.wikipedia.org/wiki/Quasi-Newton_method) which seek to follow the wisdom of Newtonion Optimization without fully calculating the Hessian on each optimization step. The BFGS algorithm maintains an approximation $H \approx B^{-1}$ which gets updated as we go, saving us from having to calculate and then invert the Hessian for each and every step.
 
 The BFGS algorithm works as follows. Starting with an initial estimate of $H = I$, a starting $x$ chosen arbitrarily, and let $k$ be the current iteration of the algorithm, then
 
@@ -147,9 +147,9 @@ $$
 
 After which we return to step 1 and repeat, now with a better understanding of the curvature of the function thanks to our updated $H$. If you think that update equation in step 5 fell from the sky bestowed upon us by aliens, you are not alone. While there are [plenty](https://en.wikipedia.org/wiki/Broyden–Fletcher–Goldfarb–Shanno_algorithm#Algorithm) of [places](https://machinelearningmastery.com/bfgs-optimization-in-python/) on [the internet](https://www.cs.purdue.edu/homes/jhonorio/16spring-cs52000-quasinewton.pdf) that will tell you *about* the BFGS algorithm, none (in my opinion) do an adquate job explaining where it comes from. 
 
-We will now derive the BFGS update formula, prove that this works and/or provide some intution as to *why* this works.
+Which brings us to the point of this entire article. We will now derive the BFGS update formula, proofing that this algorithm does work as intended.
 
-We start from the acknowledgement that $H_k$ is an imperfect approximation of the true inverse Hessian of $f$[^5]. The inverted Hessian *ought* to explain the change in gradient observed between positions $x_k$ and $x_{k+1}$ satisfing the [Secant Equation](https://en.wikipedia.org/wiki/Secant_method)
+We start from the acknowledgement that $H_k$ is an imperfect approximation of the true inverse Hessian of $f$[^5]. The inverted Hessian *ought* to explain the change in gradient observed between positions $x_k$ and $x_{k+1}$ satisfing an inverted [Secant Equation](https://en.wikipedia.org/wiki/Secant_method)
 
 [^5]: And unless $f$ was in fact quadratic, it doesn't even have a *single* true Hessian, but that's besides the point
 
@@ -175,7 +175,7 @@ $H_{k+1} y_k = s_k$
 
 </div>
 
-This forms a simple [system of linear equations](https://en.wikipedia.org/wiki/System_of_linear_equations) that ought to be familiar to most folks who've studied linear algebra [^6]. We run into a wrinkle though: our system is underspecified. We have a system of $n$ equations, but $  \frac{n(n-1)}{2}$ free variables[^7]. For $n > 2$ there are an infinite number of possible new $H$s that could satisfy our secant equation[^8]. 
+This forms a simple [system of linear equations](https://en.wikipedia.org/wiki/System_of_linear_equations) that ought to be familiar to most folks who've studied linear algebra [^6]. We run into a wrinkle, however: our system is horribly underspecified. We have a system of $n$ equations, but $  \frac{n(n-1)}{2}$ free variables[^7]. For $n > 2$ there are an infinite number of possible new $H$s that could satisfy our secant equation[^8]. 
 
 [^6]: if it's not, see [Gaussian elimination](https://en.wikipedia.org/wiki/Gaussian_elimination) for an explanation of how systems of equations can be viewed as matrix algebra, and vice versa
 
@@ -183,7 +183,7 @@ This forms a simple [system of linear equations](https://en.wikipedia.org/wiki/S
 
 [^8]: And if $n<=2$ we might as well use another algorithm
 
-Of those infinite $H$s, lets pick the one thats closest to $H_k$. Our estimate of the inverted Hessian builds up curvature information as we iterate, and we'd like to preserve as much of that information as possible. The candidate $H$ we choose for $H_{k+1}$ shall be the matrix that changes *as little as possible* from $H_k$ while still satisfying our criterea.
+Of those infinite $H$s, it is hopefully uncontroversial that we want the one that is closest to $H_k$. After all, our estimate of the inverted Hessian builds up curvature information as we iterate, and we'd like to preserve as much of that information as possible. The candidate $H$ we choose for $H_{k+1}$ shall be the matrix that changes *as little as possible* from $H_k$ while still satisfying our criterea.
 
 In order to measure the difference, we might go with a simple Frobenius norm
 
@@ -208,11 +208,13 @@ $$
 </div>
 
 
-We want to stay as close to $H_k$ as possible, so our goal is to find $H$ which minimizes $\lVert H - H_k \lVert _W$ subject to $Hy_k = s$. 
+We want to stay as close to $H_k$ as possible, so our goal is to find some $H$ which minimizes $\lVert H - H_k \lVert _W$ subject to $Hy_k = s_k$[^9].
 
-We are now ready to begin our derivation of the update algorithm[^9]
+[^9]: And is symmetric. If $H$ isn't symmetric then it's not a proper approximation of the inverse Hessian
 
-[^9]: Had we picked a measure of closeness other than a weighted Frobenius norm, we wouldn't be working with BFGS but with [DFP](https://en.wikipedia.org/wiki/Davidon–Fletcher–Powell_formula), [SR1](https://en.wikipedia.org/wiki/Symmetric_rank-one), etc. There are a variety of quasi-newton methods out there, and this choice of "measure of closeness" is one of the primary differentiators
+We are now ready to begin our derivation of the update algorithm[^10]
+
+[^10]: Had we picked a measure of closeness other than a weighted Frobenius norm, we wouldn't be working with BFGS but with [DFP](https://en.wikipedia.org/wiki/Davidon–Fletcher–Powell_formula), [SR1](https://en.wikipedia.org/wiki/Symmetric_rank-one), etc. There are a variety of quasi-newton methods out there, and this choice of "measure of closeness" is one of the primary differentiators
 
 ### Step 1: Change of Variable
 
@@ -276,9 +278,9 @@ $$
 
 </div>
 
-Now lets talk about that weight matrix $W$. We're never going to actually construct $\hat{H} = W^{\frac{1}{2}}HW^{\frac{1}{2}}$, so the choice of weight matrix is purely algebraic. Let's choose as our weight matrix $G$, the[^10] average Hessian of $f$
+Now lets talk about that weight matrix $W$. We're never going to actually construct $\hat{H} = W^{\frac{1}{2}}HW^{\frac{1}{2}}$, so the choice of weight matrix is purely algebraic. Let's choose as our weight matrix $G$, the[^11] average Hessian of $f$
 
-[^10]: (theoretical)
+[^11]: (theoretical)
 
 <div class="math">
 
@@ -333,9 +335,21 @@ $$
 
 </div>
 
-So we're looking for a matrix $\hat{H}$ which maps $\hat{y}$ to itself, still mindful of staying as close to $\hat{H}$ as possible (and always symmetric). Our method will be thus: cancel out $\hat{H}_k$'s current action on $\hat{y}$, then construct a matrix that maps $\hat{y}$ as we desire [^11].
+We get one additional property for free: since $\hat{H}$ must be symmetric, that means the orthogonal compliment to $\hat{y}$ must be closed. For any $w$ orthogonal to $\hat{y}$
 
-[^11]: if this also seems plucked from the sky, bear with me. It will all work out
+<div class="math">
+
+$$
+\hat{y}^{\top}\hat{H}w = w^{\top}\hat{H}\hat{y} = w^{\top}\hat{y} = 0
+$$
+
+</div>
+
+So if $w$ is orthogonal to $\hat{y}$, then $\hat{H}w$ must also be orthogonal to $\hat{y}$. Our desired $\hat{H}$ must send $\hat{y}$ to $\hat{y}$, and must not send any vector in the orthogonal compliment in the $\hat{y}$-direction. Set this fact aside for now; we'll use it later in step 3 to prove that what we do then is in fact optimal.
+
+So we're looking for a matrix $\hat{H}$ which maps $\hat{y}$ to itself, still mindful of staying as close to $\hat{H_k}$ as possible (and always symmetric). Our method will be thus: modify $\hat{H}_k$'s in order to cancel its current action on $\hat{y}$, then construct and add in a matrix that maps $\hat{y}$ as we desire [^12].
+
+[^12]: if this also seems plucked from the sky, bear with me. It will all work out
 
 
 
@@ -346,7 +360,7 @@ Let $Q$ be a matrix that projects onto the subspace spanned by $\hat{y}$. In oth
 
 {{< media src="generated_images/project_onto_y_p1.png" alt="Projecting the vector x onto the subspace spanned by y" themed="true">}}
 
-Then lets define $x$ in terms of the portional parallel to $\hat{y}$ - $Qx$ - and the remaining part, which we'll call $z$
+Then lets define $x$ in terms of the portional parallel to $\hat{y}$, $Qx$, and the remaining part, which we'll call $z$
 
 <div class="math">
 
@@ -356,7 +370,17 @@ $$
 
 </div>
 
-if we solve for $z$ - that portion of $x$ orthagonal to $\hat{y}$, we get
+$Q$ takes the general form
+
+<div class="math">
+
+$$
+Q = \frac{\hat{y}\hat{y}^{\top}}{\hat{y}^{\top}\hat{y}}
+$$
+
+</div>
+
+if we solve for $z$, that portion of $x$ orthagonal to $\hat{y}$, we get
 
 <div class="math">
 
@@ -380,7 +404,10 @@ $$
 
 </div>
 
-Since $P$ projects onto a subspace orthogonal to $Span\{\hat{y}\}$, $P\hat{y} = 0$. We now have the mechanism to cancel action on $\hat{y}$. Our matrix for part 2 - something *like* $\hat{H}+k$ that maps $\hat{y}$ to 0 -  will be
+
+---- PUT ANOTHER GRAPH HERE ----
+
+Since $P$ projects onto a subspace orthogonal to $Span\{\hat{y}\}$, $P\hat{y} = 0$. We now have the mechanism to cancel action on $\hat{y}$. Our matrix for part 2 - something *like* $\hat{H}_k$ that maps $\hat{y}$ to 0 -  will be
 
 <div class="math">
 
@@ -390,10 +417,244 @@ $$
 
 </div>
 
----- PUT ANOTHER GRAPH HERE ----
 
 The right $P$ kills all action on $\hat{y}$ and maps it to 0. The left $P$ ensures that this matrix remains symmetric.
 
+<div class="math">
+
+$$
+P\hat{H}_kP\hat{y} = P\hat{H}_k(Py) = P\hat{H}_k0 = 0
+$$
+
+</div>
+
 ### Step 3: Map $\hat{y}$ to $\hat{y}$
 
-We now need a matrix that that maps $\hat{y}$ to itself. Two obvious choices present themselves: first is the identity matrix $I$, and second is $Q$, the matrix we just defined above which projects onto $span\{\hat{y}\}$. We want the one that minimizes the norm $\lVert\hat{H} - \hat{H_k}\rVert _F$, so let's investigate how each of these choices affect the Frobenius norm.
+For the second part of our construction we need a matrix that that maps $\hat{y}$ to itself. The identity matrix $I$ is an obvious choice, but we also have $Q$, the matrix we just defined above which projects onto $span\{\hat{y}\}$. We want the one that minimizes the norm $\lVert\hat{H} - \hat{H_k}\rVert _F$, so let's investigate how each of these choices affect the Frobenius norm.
+
+The difference between $Q$ and $I$'s respective effects on the norm is easiest to see if we conduct a [change-of-basis](https://en.wikipedia.org/wiki/Change_of_basis) to a new vector space. Let $J$ be our new vector space with orthonormal basis $\{j_1, j_2, \ldots, j_n\}$. We define $j_1 = \frac{\hat{y}}{\lVert\hat{y}\rVert}$, and $\{j_2, \cdots , j_n\}$ as orthonormal vectors spanning the remainder of $J$. Because $J$ is an orthogonal matrix - composed of orthognal vectors each with a norm of 1 - the change of basis does not affect the Frobenius norm 
+
+<div class="math">
+
+$$
+\lVert JMJ \rVert _F = \lVert M \rVert _F
+$$
+
+</div>
+
+So the construction with the lowest norm in our new basis will have the lowest norm outside of it as well. We can define our existing approximation of the inverse Hessian generally as
+
+<div class="math">
+
+$$
+[\hat{H}_k]_J = 
+\begin{bmatrix}
+a & r^{\top} \\
+r & C
+\end{bmatrix}
+$$
+
+</div>
+
+Where $a$ is a scalar, $r$ is a vector of length $n-1$, and $C$ is an $(n-1)\times(n-1)$ symmetrical matrix[^13]. Next lets look at $Q$ in our new basis. For some matrix $M$ which maps vector space $A$ back to itself, the formula to change its basis to vectors space $B$ is
+
+[^13]: This representation actually has nothing to do with the change-of-basis. We can always write out a symmetrical matrix this way. We just haven't needed to before now
+
+<div class="math">
+
+$$
+\def\arraystretch{1.5}
+\begin{array}{c}
+\text{if} \\
+M: x\mapsto y,\ \ \ \ x,y \in A \\
+\text{then} \\
+[M]_B = P_{B\leftarrow A}^{-1}MP_{B\leftarrow A} \\
+\text{such that} \\
+[M]_B:[x]_B\mapsto[y]_B,\ \ \ \ [x]_B,[y]_B \in B
+\end{array}
+$$
+
+</div>
+
+In other words we can construct a transformation in the new basis which is equivalent to $M$ in the old basis by sandwhiching $M$ between the change-of-basis matrix $P_{B\leftarrow A}$ and its inverse. Now, the change-of-basis matrix is constructed by taking the basis vectors of the source vector space and replacing them with their respective [coordinate vectors](https://en.wikipedia.org/wiki/Coordinate_vector) in the target vector space. Because we're starting in the standard basis, the change-of-basis matrix is simply the basis vectors of the target vector space. So
+
+<div class="math">
+
+$$
+\def\arraystretch{1.5}
+\begin{array}{llr}
+[\hat{Q}]_J &= P_{J\leftarrow E}^{-1} \hat{Q} P_{J\leftarrow E} \\
+&= J^{-1}\hat{Q}J \\
+&= J^{\top}\hat{Q}J & \text{because } J \text{ is orthogonal} \\
+&= J^{\top}\frac{\hat{y}\hat{y}^{\top}}{\hat{y}^{\top}\hat{y}}J \\
+&= \frac{1}{\lVert\hat{y}\rVert^2}J^{\top}\hat{y}\hat{y}^{\top}J \\
+&= \frac{1}{\lVert\hat{y}\rVert^2}(J^{\top}\hat{y})(\hat{y}^{\top}J)
+\end{array}
+$$
+
+</div>
+
+Now remember that we defined $J$ such that $j_1 = \frac{\hat{y}}{\lVert\hat{y}\rVert}$, and the remaining columns $\{j_2, \dotsc, j_n\}$ are orthogonal to the first column, which means they're orthogonal to $\hat{y}$.
+
+<div class="math">
+
+$$
+\def\arraystretch{1.5}
+\begin{array}{llr}
+J^{\top}\hat{y} &= 
+\begin{bmatrix}
+j_{1-1} & j_{1-2} & \dotsc & j_{1-n} \\
+j_{2-1} & j_{2-2} & \dotsc & j_{2-n}\\
+\vdots & & \ddots  & \vdots\\
+j_{n-1} & j_{n-2} & \dotsc & j_{n-n}
+\end{bmatrix}
+\begin{bmatrix}
+\hat{y}_1 \\
+\hat{y}_2 \\
+\vdots \\
+\hat{y}_n
+\end{bmatrix}
+= \begin{bmatrix}
+\hat{y} \cdot j_1 \\
+\hat{y} \cdot j_2 \\
+\vdots \\
+\hat{y} \cdot j_n
+\end{bmatrix} 
+= \begin{bmatrix}
+\frac{\lVert \hat{y} \rVert ^2}{\lVert \hat{y} \rVert} \\
+0 \\
+\vdots \\
+0
+\end{bmatrix} \\
+&= \begin{bmatrix}
+\lVert \hat{y} \rVert \\
+0 \\
+\vdots \\
+0
+\end{bmatrix}
+\end{array}
+$$
+
+</div>
+
+The result of our other parenthetical follows the same algebra, but also falls out easily from the transpose
+
+<div class="math">
+
+$$
+\hat{y}^{\top} J = (J^{\top}\hat{y})^{\top} = \begin{bmatrix} \lVert \hat{y} \rVert & 0 & \cdots & 0 \end{bmatrix}
+$$
+
+</div>
+
+Then our definition of $\hat{Q}$ in the new basis is
+
+<div class="math">
+
+$$
+\def\arraystretch{1.5}
+\begin{array}{llr}
+[\hat{Q}]_J &= \frac{1}{\lVert \hat{y} \rVert ^2} 
+\begin{bmatrix} \lVert \hat{y} \rVert & 0 & \cdots & 0 \end{bmatrix}
+\begin{bmatrix} \lVert \hat{y} \rVert \\ 0 \\ \vdots \\ 0 \end{bmatrix} \\
+&= 
+\begin{bmatrix}
+1 & 0 & \cdots & 0 \\
+0 & 0 & \cdots & 0 \\
+\vdots & & \ddots & \vdots \\
+0 & 0 & \cdots & 0
+\end{bmatrix}
+\end{array}
+$$
+
+</div>
+
+Which should be obvious in hindsight. $Q$ was a matrix which projected onto $span\{\hat{y}\}$. Now that we're in a vector space where the first basis vector is in the direction of $\hat{y}$, $[Q]_J$ is a matrix which extracts the first element of any vector on which it acts, and zeroes out all other elements. 
+
+Now for the definition of $\hat{P}$ in our new basis, which was the matrix which projected onto the orthogonal compliment of $span\{\hat{y}\}$[^14]
+
+[^14]: From that statement alone one could guess the definition of $[\hat{P}]_J$, but we'll show it anyway
+
+<div class="math">
+
+$$
+\def\arraystretch{1.5}
+\begin{array}{llr}
+[\hat{P}]_J &= J^{\top}(I - \hat{Q})J \\
+&= J^{\top}IJ - J^{\top}\hat{Q}J \\
+&= I - [\hat{Q}]_J \\
+&= \begin{bmatrix}
+0 & 0 \\
+0 & I_{n-1}
+\end{bmatrix}
+\end{array}
+$$
+
+</div>
+
+And therefore, our version of $\hat{H}_k$ with its action on $\hat{y}$ canceled is, in our new basis
+
+<div class="math">
+
+$$
+\def\arraystretch{1.5}
+\begin{array}{llr}
+[\hat{P}\hat{H}_k\hat{P}]_J &= 
+\begin{bmatrix}
+0 & 0 \\
+0 & I_{n-1}
+\end{bmatrix}
+\begin{bmatrix}
+a & r^{\top} \\
+r & C
+\end{bmatrix}
+\begin{bmatrix}
+0 & 0 \\
+0 & I_{n-1}
+\end{bmatrix} \\
+& = 
+\begin{bmatrix}
+0 & 0 \\
+0 & I_{n-1}
+\end{bmatrix}
+\begin{bmatrix}
+0 & r^{\top} \\
+0 & C
+\end{bmatrix} \\
+&=
+\begin{bmatrix}
+0 & 0 \\
+0 & C
+\end{bmatrix}
+\end{array}
+$$
+
+</div>
+
+Now lets start putting all the pieces together and see how they affect the norm. Construction 1 with $\hat{Q}$ comes out to 
+
+<div class="math">
+
+$$
+\def\arraystretch{1.5}
+\begin{array}{llr}
+[\hat{Q} + \hat{P}\hat{H}_k\hat{P}]_J = 
+\begin{bmatrix}
+1 & 0 \\
+0 & 0
+\end{bmatrix}
++
+\begin{bmatrix}
+0 & 0 \\
+0 & C
+\end{bmatrix} =
+\begin{bmatrix}
+1 & 0 \\
+0 & C
+\end{bmatrix}
+\end{array}
+$$
+
+</div>
+
+And construction 2 with $I$ comes out to 
