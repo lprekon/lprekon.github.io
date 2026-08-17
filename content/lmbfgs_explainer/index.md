@@ -631,14 +631,14 @@ $$
 
 </div>
 
-Now lets start putting all the pieces together and see how they affect the norm. Construction 1 with $\hat{Q}$ comes out to 
+Now lets start putting all the pieces together and see how they affect the norm. Construction 1 using $\hat{Q}$ to send $\hat{y}$ to itself, and construction 2 using $I$ to do so
 
 <div class="math">
 
 $$
 \def\arraystretch{1.5}
-\begin{array}{llr}
-[\hat{Q} + \hat{P}\hat{H}_k\hat{P}]_J = 
+\begin{array}{lcl}
+[\hat{Q} + \hat{P}\hat{H}_k\hat{P}]_J &= 
 \begin{bmatrix}
 1 & 0 \\
 0 & 0
@@ -647,14 +647,92 @@ $$
 \begin{bmatrix}
 0 & 0 \\
 0 & C
-\end{bmatrix} =
+\end{bmatrix} &=
 \begin{bmatrix}
 1 & 0 \\
 0 & C
+\end{bmatrix} \\
+[I + \hat{P}\hat{H}_k\hat{P}]_J &= 
+\begin{bmatrix}
+1 & 0 \\
+0 & I_{n-1}
+\end{bmatrix}
++
+\begin{bmatrix}
+0 & 0 \\
+0 & C
+\end{bmatrix} &=
+\begin{bmatrix}
+1 & 0 \\
+0 & C+I_{n-1}
 \end{bmatrix}
 \end{array}
 $$
 
 </div>
 
-And construction 2 with $I$ comes out to 
+And now the norms
+
+
+<div class="math">
+
+$$
+\def\arraystretch{1.5}
+\begin{array}{llr}
+\lVert [\hat{Q} + \hat{P}\hat{H}_k\hat{P}]_J - [\hat{H}_k]_J \rVert _F &= \lVert
+    \begin{bmatrix}
+    1 & 0 \\
+    0 & C
+    \end{bmatrix}
+    -
+    \begin{bmatrix}
+    a & r^{\top} \\
+    r & C
+    \end{bmatrix} \rVert _F \\
+&= \lVert
+    \begin{bmatrix}
+    1-a & -r^{\top} \\
+    -r & 0
+    \end{bmatrix} \rVert\\
+&= (1-a)^2 + \lVert r \rVert ^2 \\
+\lVert [I + \hat{P}\hat{H}_k\hat{P}]_J - [\hat{H}_k]_J \rVert _F &= \lVert
+    \begin{bmatrix}
+    1 & 0 \\
+    0 & C + I_{n-1}
+    \end{bmatrix}
+    -
+    \begin{bmatrix}
+    a & r^{\top} \\
+    r & C
+    \end{bmatrix} \rVert _F \\
+&= \lVert
+    \begin{bmatrix}
+    1-a & -r^{\top} \\
+    -r & I_{n-1}
+    \end{bmatrix} \rVert\\
+&= (1-a)^2 + \lVert r \rVert ^2 + (n-1)
+\end{array}
+$$
+
+</div>
+
+The latter of which is obviously bigger for $n > 1$. We can, in fact, prove that $\hat{Q}$ if the *best* possible matrix here, and that there does not exist any other matrix which maps $\hat{y}$ to itself and produces a smaller norm. In our changed basis, it must be the case that
+
+<div class="math">
+
+$$
+\def\arraystretch{1.5}
+\begin{array}{llr}
+[\hat{H}_{k+1}]_J = 
+\begin{bmatrix}
+1 & 0 \\
+0 & M
+\end{bmatrix}
+\end{array}
+$$
+
+</div>
+
+where $M$ is an arbitrary $(n-1)\times(n-1)$ symmetric matrix. This must be true because $[\hat{H}_{k+1}]_J$ must map $\hat{y}$ to itself, and in our changed bases $\hat{y}$ only has a non-zero element in the first position. Therefore the first row of $[\hat{H}_{k+1}]_J$ must be 1 followed by 0s. And since the matrix is symmetric, the first column must be the same. The remaining elements, $M$, are free. So since $[\hat{H}_{k+1}]_J$ must take the form above, and $[\hat{H}_{k}]_J$ takes the general form $\begin{bmatrix}a & r^{\top} \\ r & C\end{bmatrix}$, then the candidate $[\hat{H}]_J$ which is minimally distant from $[\hat{H}_k]_J$ is the one where $M=C$, which is exactly our $[\hat{Q}]_J$ construction
+
+### Step 4: Undo The Change of Variable
