@@ -156,11 +156,16 @@ a:hover {
 }
 
 .content {
-  counter-reset: h2sec eqnum;
+  counter-reset: h2sec h3sub eqnum;
 }
 
 .content h2 {
   counter-increment: h2sec;
+  counter-reset: h3sub eqnum;
+}
+
+.content h3 {
+  counter-increment: h3sub;
   counter-reset: eqnum;
 }
 
@@ -342,7 +347,7 @@ figure figcaption {
 }
 
 .math::after {
-  content: "(" counter(h2sec) "." counter(eqnum) ")";
+  content: "(" counter(h2sec) "." counter(h3sub) "." counter(eqnum) ")";
   position: absolute;
   inset-inline-start: 0;
   top: 50%;
