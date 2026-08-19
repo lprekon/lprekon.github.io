@@ -129,7 +129,7 @@ We are now thouroughly convinced that incorporating second-derivative informatio
 
 The BFGS algorithm works as follows. Starting with an initial estimate of $H = I$, a starting $x$ chosen arbitrarily, and let $k$ be the current iteration of the algorithm, then
 
-<div clas = "math">
+<div clas = "math" id="bfgs-algorithm">
 
 $$
 \def\arraystretch{1.5}
@@ -296,7 +296,7 @@ $$
 
 Using this relationship between $y_k$, $s_k$, and our chosen weight matrix, we redefine $\hat{y}$
 
-<div class="math">
+<div class="math" id="y_hat-definitions">
 
 $$
 \def\arraystretch{1.5}
@@ -741,7 +741,7 @@ We have now proved not only that $Q$ is the optimal choice for the matrix that m
 
 ### Step 4: Undo The Change of Variable
 
-Now that we've proved the optimality of our construction, the final step to get our true update algorithm is to reverse the change of variable. The tricky parts are done, and all that remains is some algebra.
+Now that we've proved the optimality of our construction, the final step to get our true update algorithm is to reverse the change of variable. The tricky parts are done, and all that remains is some algebra to get our update formula.
 
 Recall that $\hat{H}_{k+1} = W^{\frac{1}{2}}H_kW^{\frac{1}{2}}$, so $\hat{H}_{k+1} = W^{-\frac{1}{2}}\hat{H}_{k+1}W^{-\frac{1}{2}}$. Let $c = \hat{y}^{\top}\hat{y}$ for brevity.
 
@@ -765,8 +765,89 @@ $$
 \def\arraystretch{1.5}
 \begin{array}{llr}
 W^{-\frac{1}{2}}\frac{\hat{y}\hat{y}^{\top}}{c}W^{-\frac{1}{2}} &= \frac{(W^{-\frac{1}{2}}\hat{y})(\hat{y}^{\top}W^{-\frac{1}{2}})}{c} \\
-&= W^{-\frac{1}{2}}W^{\frac{1}{2}}
+&= \frac{(W^{-\frac{1}{2}}W^{\frac{1}{2}}s_k)(W^{-\frac{1}{2}}\hat{y})^{\top}}{c} \\
+&= \frac{s_ks_k^{\top}}{c}
 \end{array}
 $$
 
 </div>
+
+Now lets get $c$ out of there. Refer back to [figure 2.1.7](#y_hat-definitions) if you need a refresher. Those definitions will be quite important here.
+
+<div class="math">
+
+$$
+\def\arraystretch{1.5}
+\begin{array}{llr}
+c &= \hat{y}^{\top}\hat{y} \\
+&= (W^{\frac{1}{2}}s_k)^{\top}(W^{\frac{1}{2}}s_k) \\
+&= s_k^{\top}W^{\frac{1}{2}}W^{\frac{1}{2}}s_k \\
+&= s_k^{\top}Ws_k \\
+&= s_k^{\top}y_k
+\end{array}
+$$
+
+</div>
+
+Let's call this final value $\frac{1}{\rho _k}$, so $\rho _k = \frac{1}{s_k^{\top}y_k}$. Then
+
+<div class="math">
+
+$$
+\def\arraystretch{1.5}
+\begin{array}{llr}
+H_{k+1} &= W^{-\frac{1}{2}}[(I - \rho _k\hat{y}\hat{y}^{\top})\hat{H}_k(I - \rho _k\hat{y}\hat{y}^{\top})]W^{-\frac{1}{2}} + \rho _k s_ks_k^{\top} \\
+&= W^{-\frac{1}{2}}(I - \rho _k\hat{y}\hat{y}^{\top})W^{\frac{1}{2}}H_kW^{\frac{1}{2}}(I - \rho _k\hat{y}\hat{y}^{\top})W^{-\frac{1}{2}} + \rho _k s_ks_k^{\top}
+\end{array}
+$$
+
+</div>
+
+Lets look at the right part of that first term
+
+<div class="math">
+
+$$
+\def\arraystretch{1.5}
+\begin{array}{llr}
+W^{\frac{1}{2}}(I - \rho _k\hat{y}\hat{y}^{\top})W^{-\frac{1}{2}} &= W^{\frac{1}{2}}IW^{-\frac{1}{2}} - \rho _k (W^{\frac{1}{2}}\hat{y})(\hat{y}^{\top}W^{-\frac{1}{2}} )\\
+&= I - \rho _k (W^{\frac{1}{2}}W^{\frac{1}{2}}s_k)(W^{-\frac{1}{2}}\hat{y})^{\top} \\
+&= I -\rho _k (Ws_k)(W^{-\frac{1}{2}}W^{\frac{1}{2}}s_k) \\
+&= I - \rho _k y_k s_k^{\top}
+\end{array}
+$$
+
+</div>
+
+Now the left part of the first term
+
+<div class="math">
+
+$$
+\def\arraystretch{1.5}
+\begin{array}{llr}
+W^{-\frac{1}{2}}(I - \rho _k\hat{y}\hat{y}^{\top})W^{\frac{1}{2}} &= W^{-\frac{1}{2}}IW^{\frac{1}{2}} - \rho _k (W^{-\frac{1}{2}}\hat{y})(\hat{y}^{\top}W^{\frac{1}{2}}) \\
+&= I - \rho _k s_ky_k^{\top}
+\end{array}
+$$
+
+</div>
+
+Just like the term above, but we switched the sides of the $W^{\frac{1}{2}}$ and $W^{-\frac{1}{2}}$ so we switched which $\hat{y}$ turned into $s_k$ and which turned into $y_k$.
+
+This means the update formula that gives a new estimated inverse Hessian, incorporating the new curvature information while staying as close to the old estimate as possible is
+
+<div class="math">
+
+$$
+\def\arraystretch{1.5}
+\begin{array}{llr}
+H_{k+1} = (I - \rho _k s_ky_k^{\top})H_k(I - \rho _k y_ks_k^{\top}) + \rho _k s_ks_k^{\top}
+\end{array}
+$$
+
+</div>
+
+This is the same update formula as given in in the BFGS algorithm [above](#bfgs-algorithm), but unexpanded. Using the expanded formula, one can calculate $H_{k+1}$ without doing any full $(n \times n) \times (n \times n)$ matrix multiplications. Expanding this version into the one given above is left as an exercise for the reader.
+
+## BFGS In Practice
