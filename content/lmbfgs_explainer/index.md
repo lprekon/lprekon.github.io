@@ -129,7 +129,7 @@ We are now thouroughly convinced that incorporating second-derivative informatio
 
 The BFGS algorithm works as follows. Starting with an initial estimate of $H = I$, a starting $x$ chosen arbitrarily, and let $k$ be the current iteration of the algorithm, then
 
-<div clas = "math" id="bfgs-algorithm">
+<div class = "math" id="bfgs-algorithm">
 
 $$
 \def\arraystretch{1.5}
