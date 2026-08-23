@@ -135,7 +135,7 @@ $$
 \def\arraystretch{1.5}
 \begin{array}{cl}
 1.&\text{Determine step direction } p_k = -H_k \nabla f_k \\
-2.&\text{Perform a line search in direction } p_k \text { to find step } s_k = \alpha _k p_k \text{ (more on this later)} \\
+2.&\text{Perform a line search in direction } p_k \text { to find step } s_k = \alpha _k p_k \\
 3.&\text{Update } x_{k+1} = x_k + s_k, \text{ calculate } f(x_{k+1}), \nabla f_{k+1} \\
 4.&\text{Let } y_k = \nabla f_{k+1} - \nabla f_k \\
 5.&\text{Update estimate of inverse Hessian }\\
@@ -147,11 +147,46 @@ $$
 
 After which we return to step 1 and repeat, now with a better understanding of the curvature of the function thanks to our updated $H$. If you think that update equation in step 5 fell from the sky bestowed upon us by aliens, you are not alone. While there are [plenty](https://en.wikipedia.org/wiki/Broyden–Fletcher–Goldfarb–Shanno_algorithm#Algorithm) of [places](https://machinelearningmastery.com/bfgs-optimization-in-python/) on [the internet](https://www.cs.purdue.edu/homes/jhonorio/16spring-cs52000-quasinewton.pdf) that will tell you *about* the BFGS algorithm, none (in my opinion) do an adquate job explaining where it comes from. 
 
-Which brings us to the point of this entire article. We will now derive the BFGS update formula, proofing that this algorithm does work as intended.
+Let's explain that line search in step two, and then we'll get to the point of this article - deriving the update algorithm and proving that it is optimal
 
-We start from the acknowledgement that $H_k$ is an imperfect approximation of the true inverse Hessian of $f$[^5]. The inverted Hessian *ought* to explain the change in gradient observed between positions $x_k$ and $x_{k+1}$ satisfing an inverted [Secant Equation](https://en.wikipedia.org/wiki/Secant_method)
+## A Line Search to Satisfy Wolfe Conditions
 
-[^5]: And unless $f$ was in fact quadratic, it doesn't even have a *single* true Hessian, but that's besides the point
+Step one of the algorithm gives us search direction $p_k$, but we don't necessarily want to step a full $\lvert p_k \rvert$. The only reason you'd be certain $s_k = p_k$ would be if A) $f$ was in fact purely quadratic and B) $H$ was the true inverse Hessian. Given both that we want to apply this algorithm to functions besides quadratic functions, and that $H$ is merely an approximation of the inverse Hessian which we're building over time, neither A nor B hold. We need a way to more carefully pick how far in the direction $p_k$ we want to go. 
+
+In order figure out how far in the direction $p_k$ to travel between steps $k$ and $k+1$, we conduct a line search to satisfy [Wolfe conditions](https://en.wikipedia.org/wiki/Wolfe_conditions). All that means is we pick some starting $\alpha _k$ (usually $\alpha _k = 1$), evaluate $f(x_k + \alpha _k p_k)$ and  $\nabla f(x_k + \alpha _k p_k)$, check them against certain conditions, and adjust $\alpha _k$ until our conditions are met. The two conditions we want satisfied are
+
+<div class = "math">
+
+$$
+\def\arraystretch{1.5}
+\begin{array}{cl}
+1.&f(x_k + \alpha _k p_k) \le f(x_k) + c_1 \alpha _k p_k^{\top} \nabla f(x_k) \\
+2.&-p_k^{\top} \nabla f(x_k + \alpha _k p_k) \le -c_2 p_k^{\top} \nabla f(x_k)
+\end{array}
+$$
+
+</div>
+
+Where $c_1$ and $c_2$ are arbitrary positive constants, usually chosen as $10^{-4}$ and $0.9$ respectively. These two conditions place an upper and lower bound on $\alpha _k$.
+
+The first condition stops us from picking an $\alpha _k$ so large that we overshoot. The function on the right side of the inequality is a line that slopes down from $f(x_k)$ in the direction $p_k$, with slope proportional to our gradient $\nabla f$ in that direction. As our theoretical step size (and thus candidate choice of $\alpha _k$) increases, that line becomes steeper. The further we step, the greater requirement we have for the decrease of $f$. This inequality stops us from stepping so far that we overshoot the minimum and pop back up.
+
+<PUT ANIMATION HERE SHOWING HOW UPPER-BOUND LINE HINGES AS ALPHA CHANGES>
+
+The second condition keeps us from picking an $\alpha _k$ so small that we go nowhere. In this inequality, we compare the gradient in our step direction at the proposed new $x$ with some portion of that same value at our current $x$. We insist that the slope of $f$ at our new spot moves away from $- \infty$[^5], and that it has moved at least an amount proportional to our old slope; lower values of $c_2$ require us to achieve greater movement away from $- \infty$.
+
+[^5]: It's tempting to say "toward $0$" here, but that's technically inaccurate as it implies this condition would *stop* pushing us once the slope hits zero and wouldn't push the slop positive. The second condition is absolutely still satisfied if we overshoot the minimum and the slope becomes positive, and that's why we need the first condition.
+
+Now, as to how one actually *finds* an appropriate value for $\alpha _k$, there are [a number of methods](https://en.wikipedia.org/wiki/Line_search). In fact, an astute reader may have noticed that this is in fact an optimization problem itself. If you really wanted to, you could technically recurse and conduct a BFGS-based search for the minimum of the one dimensional function $g(\alpha) = f(x_k + \alpha p_k)$! This would be quite silly though, as you'd then need to do a line search in your new BFGS algorithm, recursing infinitely. In practice, the line search to satisfy wolfe conditions is usually conducted using a [backtracking line search](https://en.wikipedia.org/wiki/Backtracking_line_search). Essentially, we find an upper bound for $\alpha$ which satisfies the first condition, and a lower bound which satisfies the second, and then conduct something like a binary search within that range until we find an $\alpha$ that's "good enough". We don't wan't to waste time finding the *optimal* $\alpha$. Once we find an $\alpha$ which satisfies our conditions, our compute resources are better spent finding the next direction of search in our overall algorithm. 
+
+The exact line search algorithm is a bit complicated and beyond the scope of this article. If you're interested, check out [PyTorch's implementation](https://github.com/pytorch/pytorch/blob/cf30153c4c131c8164ee7798e5022d810682e2cb/torch/optim/lbfgs.py#L40).
+
+
+## Derivation
+
+We start from the acknowledgement that $H_k$ is an imperfect approximation of the true inverse Hessian of $f$[^6]. The inverted Hessian *ought* to explain the change in gradient observed between positions $x_k$ and $x_{k+1}$ satisfying an inverted [Secant Equation](https://en.wikipedia.org/wiki/Secant_method)
+
+[^6]: And unless $f$ was in fact quadratic, it doesn't even have a *single* true Hessian, but that's besides the point
 
 <div class = "math">
 
@@ -175,13 +210,13 @@ $H_{k+1} y_k = s_k$
 
 </div>
 
-This forms a simple [system of linear equations](https://en.wikipedia.org/wiki/System_of_linear_equations) that ought to be familiar to most folks who've studied linear algebra [^6]. We run into a wrinkle, however: our system is horribly underspecified. We have a system of $n$ equations, but $  \frac{n(n-1)}{2}$ free variables[^7]. For $n > 2$ there are an infinite number of possible new $H$s that could satisfy our secant equation[^8]. 
+This forms a simple [system of linear equations](https://en.wikipedia.org/wiki/System_of_linear_equations) that ought to be familiar to most folks who've studied linear algebra [^7]. We run into a wrinkle, however: our system is horribly underspecified. We have a system of $n$ equations, but $  \frac{n(n-1)}{2}$ free variables[^8]. For $n > 2$ there are an infinite number of possible new $H$s that could satisfy our secant equation[^9]. 
 
-[^6]: if it's not, see [Gaussian elimination](https://en.wikipedia.org/wiki/Gaussian_elimination) for an explanation of how systems of equations can be viewed as matrix algebra, and vice versa
+[^7]: if it's not, see [Gaussian elimination](https://en.wikipedia.org/wiki/Gaussian_elimination) for an explanation of how systems of equations can be viewed as matrix algebra, and vice versa
 
-[^7]: $H$ is the inverse of $B$, and $B$ must be symmetric per footnote 3, so $H$ must be symmetric
+[^8]: $H$ is the inverse of $B$, and $B$ must be symmetric per footnote 3, so $H$ must be symmetric
 
-[^8]: And if $n<=2$ we might as well use another algorithm
+[^9]: And if $n<=2$ we might as well use another algorithm
 
 Of those infinite $H$s, it is hopefully uncontroversial that we want the one that is closest to $H_k$. After all, our estimate of the inverted Hessian builds up curvature information as we iterate, and we'd like to preserve as much of that information as possible. The candidate $H$ we choose for $H_{k+1}$ shall be the matrix that changes *as little as possible* from $H_k$ while still satisfying our criterea.
 
@@ -208,15 +243,17 @@ $$
 </div>
 
 
-We want to stay as close to $H_k$ as possible, so our goal is to find some $H$ which minimizes $\lVert H - H_k \lVert _W$ subject to $Hy_k = s_k$[^9].
+We want to stay as close to $H_k$ as possible, so our goal is to find some $H$ which minimizes $\lVert H - H_k \lVert _W$ subject to $Hy_k = s_k$[^10].
 
-[^9]: And is symmetric. If $H$ isn't symmetric then it's not a proper approximation of the inverse Hessian
+[^10]: And is symmetric. If $H$ isn't symmetric then it's not a proper approximation of the inverse Hessian
 
-We are now ready to begin our derivation of the update algorithm[^10]
+We are now ready to begin our derivation of the update algorithm[^11]
 
-[^10]: Had we picked a measure of closeness other than a weighted Frobenius norm, we wouldn't be working with BFGS but with [DFP](https://en.wikipedia.org/wiki/Davidon–Fletcher–Powell_formula), [SR1](https://en.wikipedia.org/wiki/Symmetric_rank-one), etc. There are a variety of quasi-newton methods out there, and this choice of "measure of closeness" is one of the primary differentiators
+[^11]: Had we picked a measure of closeness other than a weighted Frobenius norm, we wouldn't be working with BFGS but with [DFP](https://en.wikipedia.org/wiki/Davidon–Fletcher–Powell_formula), [SR1](https://en.wikipedia.org/wiki/Symmetric_rank-one), etc. There are a variety of quasi-newton methods out there, and this choice of "measure of closeness" is one of the primary differentiators
 
-### Step 1: Change of Variable
+
+
+### Part 1: Change of Variable
 
 Since we're going to weight our $H$s as part of measuring distance, lets talk about the weighted matrices
 
@@ -278,9 +315,9 @@ $$
 
 </div>
 
-Now lets talk about that weight matrix $W$. We're never going to actually construct $\hat{H} = W^{\frac{1}{2}}HW^{\frac{1}{2}}$, so the choice of weight matrix is purely algebraic. Let's choose as our weight matrix $G$, the[^11] average Hessian of $f$
+Now lets talk about that weight matrix $W$. We're never going to actually construct $\hat{H} = W^{\frac{1}{2}}HW^{\frac{1}{2}}$, so the choice of weight matrix is purely algebraic. Let's choose as our weight matrix $G$, the[^12] average Hessian of $f$
 
-[^11]: (theoretical)
+[^12]: (theoretical)
 
 <div class="math">
 
@@ -347,14 +384,14 @@ $$
 
 So if $w$ is orthogonal to $\hat{y}$, then $\hat{H}w$ must also be orthogonal to $\hat{y}$. Our desired $\hat{H}$ must send $\hat{y}$ to $\hat{y}$, and must not send any vector in the orthogonal compliment in the $\hat{y}$-direction. Set this fact aside for now; we'll use it later in step 3 to prove that what we do then is in fact optimal.
 
-So we're looking for a matrix $\hat{H}$ which maps $\hat{y}$ to itself, still mindful of staying as close to $\hat{H_k}$ as possible (and always symmetric). Our method will be thus: modify $\hat{H}_k$'s in order to cancel its current action on $\hat{y}$, then construct and add in a matrix that maps $\hat{y}$ as we desire [^12].
+So we're looking for a matrix $\hat{H}$ which maps $\hat{y}$ to itself, still mindful of staying as close to $\hat{H_k}$ as possible (and always symmetric). Our method will be thus: modify $\hat{H}_k$'s in order to cancel its current action on $\hat{y}$, then construct and add in a matrix that maps $\hat{y}$ as we desire [^13].
 
-[^12]: if this also seems plucked from the sky, bear with me. It will all work out
-
-
+[^13]: if this also seems plucked from the sky, bear with me. It will all work out
 
 
-### Step 2: Cancel Action On $\hat{y}$ 
+
+
+### Part 2: Cancel Action On $\hat{y}$ 
 
 Let $Q$ be a matrix that projects onto the subspace spanned by $\hat{y}$. In other words, for any vector $x$, the result of $Qx$ will be the portion of $x$ parallel to $\hat{y}$
 
@@ -428,7 +465,7 @@ $$
 
 </div>
 
-### Step 3: Map $\hat{y}$ to $\hat{y}$
+### Part 3: Map $\hat{y}$ to $\hat{y}$
 
 For the second part of our construction we need a matrix that that maps $\hat{y}$ to itself. The identity matrix $I$ is an obvious choice, but we also have $Q$, the matrix we just defined above which projects onto $span\{\hat{y}\}$. We want the one that minimizes the norm $\lVert\hat{H} - \hat{H_k}\rVert _F$, so let's investigate how each of these choices affect the Frobenius norm.
 
@@ -456,9 +493,9 @@ $$
 
 </div>
 
-Where $a$ is a scalar, $r$ is a vector of length $n-1$, and $C$ is an $(n-1)\times(n-1)$ symmetrical matrix[^13]. Next lets look at $Q$ in our new basis. For some matrix $M$ which maps vector space $A$ back to itself, the formula to change its basis to vectors space $B$ is
+Where $a$ is a scalar, $r$ is a vector of length $n-1$, and $C$ is an $(n-1)\times(n-1)$ symmetrical matrix[^14]. Next lets look at $Q$ in our new basis. For some matrix $M$ which maps vector space $A$ back to itself, the formula to change its basis to vectors space $B$ is
 
-[^13]: This representation actually has nothing to do with the change-of-basis. We can always write out a symmetrical matrix this way. We just haven't needed to before now
+[^14]: This representation actually has nothing to do with the change-of-basis. We can always write out a symmetrical matrix this way. We just haven't needed to before now
 
 <div class="math">
 
@@ -571,9 +608,9 @@ $$
 
 Which should be obvious in hindsight. $Q$ was a matrix which projected onto $span\{\hat{y}\}$. Now that we're in a vector space where the first basis vector is in the direction of $\hat{y}$, $[Q]_J$ is a matrix which extracts the first element of any vector on which it acts, and zeroes out all other elements. 
 
-Now for the definition of $\hat{P}$ in our new basis, which was the matrix which projected onto the orthogonal compliment of $span\{\hat{y}\}$[^14]
+Now for the definition of $\hat{P}$ in our new basis, which was the matrix which projected onto the orthogonal compliment of $span\{\hat{y}\}$[^15]
 
-[^14]: From that statement alone one could guess the definition of $[\hat{P}]_J$, but we'll show it anyway
+[^15]: From that statement alone one could guess the definition of $[\hat{P}]_J$, but we'll show it anyway
 
 <div class="math">
 
@@ -739,7 +776,7 @@ where $M$ is an arbitrary $(n-1)\times(n-1)$ symmetric matrix. This must be true
 
 We have now proved not only that $Q$ is the optimal choice for the matrix that maps $\hat{y}$ to itself, but that the construction $\hat{P}\hat{H}_k\hat{P} + \hat{Q}$ is the optimal choice for $\hat{H}_k+1$, as it is the matrix closest to $\hat{H}_k$ which satisfies our secant condition
 
-### Step 4: Undo The Change of Variable
+### Part 4: Undo The Change of Variable
 
 Now that we've proved the optimality of our construction, the final step to get our true update algorithm is to reverse the change of variable. The tricky parts are done, and all that remains is some algebra to get our update formula.
 
