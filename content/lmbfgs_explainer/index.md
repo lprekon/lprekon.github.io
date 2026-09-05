@@ -76,7 +76,7 @@ $$
 
 </div>
 
-Then, starting from evaluating $f$ at some point $x$, the minimum of $f$ is at $x_{\min} = x + s$, where $s$ is our step size of $-\frac{f'(x_0)}{f''(x_0)}$. In other words $argmin_x f(x) = x_0 + \frac{f'(x_0)}{f''(x_0)}$
+So, starting from evaluating $f$ at some point $x$, the minimum of $f$ is at $x_{\min} = x + s$, where $s$ is our step size of $-\frac{f'(x_0)}{f''(x_0)}$. In other words $argmin_x f(x) = x_0 + \frac{f'(x_0)}{f''(x_0)}$
 
 Lets generalize this to functions of multiple variables. $f'(x)$ becomes the [Jacobian](https://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant) $∇f$, a vector of partial first derivatives. $f''(x)$ becomes the [Hessian](https://en.wikipedia.org/wiki/Hessian_matrix) $B$, a matrix of partial second derivatives.
 
@@ -115,7 +115,7 @@ $$
 
 </div>
 
-And this brings us to the major problem with Newtonian optimization - that pesky $B^{-1}$. Gradient descent is only concerned with the Jacobian $∇f$ to determine each step, which scales lineraly with the number of inputs. But the Hessian $B$ grows quadratically with the number of inputs[^3]. Finding the Hessian for a function of one million variables (not very large by modern machine learning standards) would require calculating five-hundred-trillion unique partial second derivatives every step. The Hessian *then* needs to be inverted on each step, which is $O(n^{2.37})$ in the best case[^4].
+And this brings us to the major problem with Newtonian optimization: that pesky $B^{-1}$. Gradient descent determines each step with only the Jacobian $∇f$, which scales lineraly with the number of inputs. But the Hessian $B$ grows quadratically with the number of inputs[^3]. Finding the Hessian for a function of one million variables (not very large by modern machine learning standards) would require calculating five-hundred-trillion unique partial second derivatives every step. The Hessian *then* needs to be inverted on each step, which is $O(n^{2.37})$ in the best case[^4].
 
 [^3]: The Hessian [must be symmetric](https://en.wikipedia.org/wiki/Symmetry_of_second_derivatives), meaning the Hessian for a function of $n$ inputs has $\frac{(n-1)^2}{2} + n$ unique elements, instead of $n^2$
 
@@ -127,7 +127,7 @@ As amazing as Newtonian optimization is, it suffers from a terrible case of comb
 
 We are now thouroughly convinced that incorporating second-derivative information into our optimization algorithm is awesome in theory, but doing so naively is impractical. We must enter the world of [Quasi-Newtonian methods](https://en.wikipedia.org/wiki/Quasi-Newton_method) which seek to follow the wisdom of Newtonian Optimization without fully calculating the Hessian on each optimization step. The BFGS algorithm maintains an approximation $H \approx B^{-1}$ which gets updated as we go, saving us from having to calculate and then invert the Hessian for each and every step.
 
-The BFGS algorithm works as follows. Starting with an initial estimate of $H = I$, a starting $x$ chosen arbitrarily, and let $k$ be the current iteration of the algorithm, then
+The BFGS algorithm works as follows. With a starting $x$ chosen arbitrarily, calculate the first round of $f(x)$ and $\nabla f$. Let our starting estimate of $H = I$, and let $k$ be the current iteration of the algorithm. Then
 
 <div class = "math" id="bfgs-algorithm">
 
@@ -145,13 +145,15 @@ $$
 
 </div>
 
-After which we return to step 1 and repeat, now with a better understanding of the curvature of the function thanks to our updated $H$. If you think that update equation in step 5 fell from the sky bestowed upon us by aliens, you are not alone. While there are [plenty](https://en.wikipedia.org/wiki/Broyden–Fletcher–Goldfarb–Shanno_algorithm#Algorithm) of [places](https://machinelearningmastery.com/bfgs-optimization-in-python/) on [the internet](https://www.cs.purdue.edu/homes/jhonorio/16spring-cs52000-quasinewton.pdf) that will tell you *about* the BFGS algorithm, none (in my opinion) do an adequate job explaining where it comes from. 
+After which we return to step 1 and repeat, now with a better understanding of the curvature of the function thanks to our updated $H$. 
+
+If you think that update equation in step 5 fell from the sky and was bestowed upon us by aliens, you are not alone. While there are [plenty](https://en.wikipedia.org/wiki/Broyden–Fletcher–Goldfarb–Shanno_algorithm#Algorithm) of [places](https://machinelearningmastery.com/bfgs-optimization-in-python/) on [the internet](https://www.cs.purdue.edu/homes/jhonorio/16spring-cs52000-quasinewton.pdf) that will tell you *about* the BFGS algorithm, none (in my opinion) do an adequate job explaining where it comes from. Why does this arcane formula actually work?
 
 Let's explain that line search in step two, and then we'll get to the point of this article - deriving the update algorithm and proving that it is optimal
 
 ## A Line Search to Satisfy Wolfe Conditions
 
-Step one of the algorithm gives us search direction $p_k$, but we don't necessarily want to step a full $\lvert p_k \rvert$. The only reason you'd be certain $s_k = p_k$ would be if A) $f$ was in fact purely quadratic and B) $H$ was the true inverse Hessian. Given both that we want to apply this algorithm to functions besides quadratic functions, and that $H$ is merely an approximation of the inverse Hessian which we're building over time, neither A nor B hold. We need a way to more carefully pick how far in the direction $p_k$ we want to go. 
+Step one of the algorithm gives us search direction $p_k$, but we don't necessarily want to step a full $\lvert p_k \rvert$. The only reason you'd be certain $s_k = p_k$ would be if A) $f$ was in fact purely quadratic and B) $H$ was the true inverse Hessian. Given that we want to apply this algorithm to functions besides quadratic functions, and that $H$ is merely an approximation of the inverse Hessian which we're building over time, neither A nor B hold. We need a way to more carefully pick how far in the direction $p_k$ we want to go. 
 
 In order figure out how far in the direction $p_k$ to travel between steps $k$ and $k+1$, we conduct a line search to satisfy [Wolfe conditions](https://en.wikipedia.org/wiki/Wolfe_conditions). All that means is we pick some starting $\alpha _k$ (usually $\alpha _k = 1$), evaluate $f(x_k + \alpha _k p_k)$ and  $\nabla f(x_k + \alpha _k p_k)$, check them against certain conditions, and adjust $\alpha _k$ until our conditions are met. The two conditions we want satisfied are
 
@@ -177,12 +179,16 @@ The second condition keeps us from picking an $\alpha _k$ so small that we go no
 
 [^5]: It's tempting to say "toward $0$" here, but that's technically inaccurate as it implies this condition would *stop* pushing us once the slope hits zero and wouldn't push the slop positive. The second condition is absolutely still satisfied if we overshoot the minimum and the slope becomes positive, and that's why we need the first condition.
 
-Now, as to how one actually *finds* an appropriate value for $\alpha _k$, there are [a number of methods](https://en.wikipedia.org/wiki/Line_search). In fact, an astute reader may have noticed that this is in fact an optimization problem itself. If you really wanted to, you could technically recurse and conduct a BFGS-based search for the minimum of the one dimensional function $g(\alpha) = f(x_k + \alpha p_k)$! This would be quite silly though, as you'd then need to do a line search in your new BFGS algorithm, recursing infinitely. In practice, the line search to satisfy wolfe conditions is usually conducted using a [backtracking line search](https://en.wikipedia.org/wiki/Backtracking_line_search). Essentially, we find an upper bound for $\alpha$ which satisfies the first condition, and a lower bound which satisfies the second, and then conduct something like a binary search within that range until we find an $\alpha$ that's "good enough". We don't wan't to waste time finding the *optimal* $\alpha$. Once we find an $\alpha$ which satisfies our conditions, our compute resources are better spent finding the next direction of search in our overall algorithm. 
+Now, as to how one actually *finds* an appropriate value for $\alpha _k$, there are [a number of methods](https://en.wikipedia.org/wiki/Line_search). In fact, an astute reader may have noticed that this is in fact an optimization problem itself. If you really wanted to, you could technically recurse and conduct a BFGS-based search for the minimum of the one dimensional function $g(\alpha) = f(x_k + \alpha p_k)$! This would be quite silly though, as you'd then need to do a line search in your new BFGS algorithm, recursing infinitely. 
+
+In practice, the line search to satisfy wolfe conditions is usually conducted using a [backtracking line search](https://en.wikipedia.org/wiki/Backtracking_line_search). Essentially, we find an upper bound for $\alpha$ which satisfies the first condition, and a lower bound which satisfies the second, and then conduct something like a binary search within that range until we find an $\alpha$ that's "good enough". We don't wan't to waste time finding the *optimal* $\alpha$. Once we find an $\alpha$ which satisfies our conditions, we're better off spending our compute resources finding the next direction of search in our overall algorithm than refining $\alpha$. Good enough is good enough.
 
 The exact line search algorithm is a bit complicated and beyond the scope of this article. If you're interested, check out [PyTorch's implementation](https://github.com/pytorch/pytorch/blob/cf30153c4c131c8164ee7798e5022d810682e2cb/torch/optim/lbfgs.py#L40).
 
 
-## Derivation
+## Deriving the Update Algorithm
+
+Now for the headliner: how does one actually arrive at that long update algorithm? What is it doing that results in $H_{k+1}$ being a better approximation of the inverse Hessian than $H_k$?
 
 We start from the acknowledgement that $H_k$ is an imperfect approximation of the true inverse Hessian of $f$[^6]. The inverted Hessian *ought* to explain the change in gradient observed between positions $x_k$ and $x_{k+1}$ satisfying an inverted [Secant Equation](https://en.wikipedia.org/wiki/Secant_method)
 
@@ -194,7 +200,7 @@ $Hy = s$
 
 </div>
 
-But since $H_k$ is an imperfect approximation, it presumably does not...
+But since $H_k$ is an imperfect approximation, it presumably does not.
 
 <div class = "math">
 
@@ -218,7 +224,7 @@ This forms a simple [system of linear equations](https://en.wikipedia.org/wiki/S
 
 [^9]: And if $n<=2$ we might as well use another algorithm
 
-Of those infinite $H$s, it is hopefully uncontroversial that we want the one that is closest to $H_k$. After all, our estimate of the inverted Hessian builds up curvature information as we iterate, and we'd like to preserve as much of that information as possible. The candidate $H$ we choose for $H_{k+1}$ shall be the matrix that changes *as little as possible* from $H_k$ while still satisfying our criterea.
+Of those infinite $H$s, it is hopefully uncontroversial that we want the one that is closest to $H_k$. After all, our estimate of the inverted Hessian builds up curvature information as we iterate, and we'd like to preserve as much of that information as possible. The candidate $H$ we want for $H_{k+1}$ is the matrix that changes *as little as possible* from $H_k$ while still satisfying our criterea.
 
 In order to measure the difference, we might go with a simple Frobenius norm
 
@@ -230,7 +236,7 @@ $$
 
 </div>
 
-However the Frobenius norm is sensitive to the elements of $x$ being measured in different magnitudes; If, say, $x_0$ was in meters but $x_1$ was in centimeters, a Frobenius norm might over-index on keeping the higher absolute value elements similar at the expense of other elements. So rather than a Frobenius norm, we'll use a weighted Frobenius norm.
+However the Frobenius norm is sensitive to the elements of our input $x$ being measured in different magnitudes; If, say, $x_0$ was in meters but $x_1$ was in centimeters, a Frobenius norm might over-index on keeping the higher absolute value elements similar at the expense of other elements. So rather than a Frobenius norm, we'll use a weighted Frobenius norm.
 
 Let $W$ be a matrix of weights. Then the weighted Frobenius norm is
 
