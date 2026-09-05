@@ -467,9 +467,127 @@ $$
 
 ### Part 3: Map $\hat{y}$ to $\hat{y}$
 
-For the second part of our construction we need a matrix that that maps $\hat{y}$ to itself. The identity matrix $I$ is an obvious choice, but we also have $Q$, the matrix we just defined above which projects onto $span\{\hat{y}\}$. We want the one that minimizes the norm $\lVert\hat{H} - \hat{H_k}\rVert _F$, so let's investigate how each of these choices affect the Frobenius norm.
+For the second part of our construction we need a matrix that that maps $\hat{y}$ to itself. The identity matrix $I$ is an obvious choice, but we also have $Q$, the matrix we just defined above which projects onto $span\{\hat{y}\}$. It turns out that $\hat{Q}$ is the better choice. We will prove this later.
 
-The difference between $Q$ and $I$'s respective effects on the norm is easiest to see if we conduct a [change-of-basis](https://en.wikipedia.org/wiki/Change_of_basis) to a new vector space. Let $J$ be our new vector space with orthonormal basis $\{j_1, j_2, \ldots, j_n\}$. We define $j_1 = \frac{\hat{y}}{\lVert\hat{y}\rVert}$, and $\{j_2, \cdots , j_n\}$ as orthonormal vectors spanning the remainder of $J$. Because $J$ is an orthogonal matrix - composed of orthognal vectors each with a norm of 1 - the change of basis does not affect the Frobenius norm 
+
+### Part 4: Undo The Change of Variable
+
+Now that we've got all the pieces of our construction, the final step to get our true update algorithm is to reverse the change of variable. The tricky parts are done, and all that remains is some algebra to get our update formula.
+
+Recall that $\hat{H}_{k+1} = W^{\frac{1}{2}}H_kW^{\frac{1}{2}}$, so $\hat{H}_{k+1} = W^{-\frac{1}{2}}\hat{H}_{k+1}W^{-\frac{1}{2}}$. Let $c = \hat{y}^{\top}\hat{y}$ for brevity.
+
+<div class="math">
+
+$$
+\def\arraystretch{1.5}
+\begin{array}{llr}
+H_{k+1} &= W^{-\frac{1}{2}}\begin{bmatrix}(I - \frac{\hat{y}\hat{y}^{\top}}{c})\hat{H}_k(I - \frac{\hat{y}\hat{y}^{\top}}{c}) + \frac{\hat{y}\hat{y}^{\top}}{c}\end{bmatrix}W^{-\frac{1}{2}} \\
+\end{array}
+$$
+
+</div>
+
+
+Starting with that last term
+
+<div class="math">
+
+$$
+\def\arraystretch{1.5}
+\begin{array}{llr}
+W^{-\frac{1}{2}}\frac{\hat{y}\hat{y}^{\top}}{c}W^{-\frac{1}{2}} &= \frac{(W^{-\frac{1}{2}}\hat{y})(\hat{y}^{\top}W^{-\frac{1}{2}})}{c} \\
+&= \frac{(W^{-\frac{1}{2}}W^{\frac{1}{2}}s_k)(W^{-\frac{1}{2}}\hat{y})^{\top}}{c} \\
+&= \frac{s_ks_k^{\top}}{c}
+\end{array}
+$$
+
+</div>
+
+Now lets get $c$ out of there. Refer back to [figure 2.1.7](#y_hat-definitions) if you need a refresher. Those definitions will be quite important here.
+
+<div class="math">
+
+$$
+\def\arraystretch{1.5}
+\begin{array}{llr}
+c &= \hat{y}^{\top}\hat{y} \\
+&= (W^{\frac{1}{2}}s_k)^{\top}(W^{\frac{1}{2}}s_k) \\
+&= s_k^{\top}W^{\frac{1}{2}}W^{\frac{1}{2}}s_k \\
+&= s_k^{\top}Ws_k \\
+&= s_k^{\top}y_k
+\end{array}
+$$
+
+</div>
+
+Let's call this final value $\frac{1}{\rho _k}$, so $\rho _k = \frac{1}{s_k^{\top}y_k}$. Then
+
+<div class="math">
+
+$$
+\def\arraystretch{1.5}
+\begin{array}{llr}
+H_{k+1} &= W^{-\frac{1}{2}}[(I - \rho _k\hat{y}\hat{y}^{\top})\hat{H}_k(I - \rho _k\hat{y}\hat{y}^{\top})]W^{-\frac{1}{2}} + \rho _k s_ks_k^{\top} \\
+&= W^{-\frac{1}{2}}(I - \rho _k\hat{y}\hat{y}^{\top})W^{\frac{1}{2}}H_kW^{\frac{1}{2}}(I - \rho _k\hat{y}\hat{y}^{\top})W^{-\frac{1}{2}} + \rho _k s_ks_k^{\top}
+\end{array}
+$$
+
+</div>
+
+Lets look at the right part of that first term
+
+<div class="math">
+
+$$
+\def\arraystretch{1.5}
+\begin{array}{llr}
+W^{\frac{1}{2}}(I - \rho _k\hat{y}\hat{y}^{\top})W^{-\frac{1}{2}} &= W^{\frac{1}{2}}IW^{-\frac{1}{2}} - \rho _k (W^{\frac{1}{2}}\hat{y})(\hat{y}^{\top}W^{-\frac{1}{2}} )\\
+&= I - \rho _k (W^{\frac{1}{2}}W^{\frac{1}{2}}s_k)(W^{-\frac{1}{2}}\hat{y})^{\top} \\
+&= I -\rho _k (Ws_k)(W^{-\frac{1}{2}}W^{\frac{1}{2}}s_k) \\
+&= I - \rho _k y_k s_k^{\top}
+\end{array}
+$$
+
+</div>
+
+Now the left part of the first term
+
+<div class="math">
+
+$$
+\def\arraystretch{1.5}
+\begin{array}{llr}
+W^{-\frac{1}{2}}(I - \rho _k\hat{y}\hat{y}^{\top})W^{\frac{1}{2}} &= W^{-\frac{1}{2}}IW^{\frac{1}{2}} - \rho _k (W^{-\frac{1}{2}}\hat{y})(\hat{y}^{\top}W^{\frac{1}{2}}) \\
+&= I - \rho _k s_ky_k^{\top}
+\end{array}
+$$
+
+</div>
+
+Just like the term above, but we switched the sides of the $W^{\frac{1}{2}}$ and $W^{-\frac{1}{2}}$ so we switched which $\hat{y}$ turned into $s_k$ and which turned into $y_k$.
+
+This means the update formula that gives a new estimated inverse Hessian, incorporating the new curvature information while staying as close to the old estimate as possible is
+
+<div class="math">
+
+$$
+\def\arraystretch{1.5}
+\begin{array}{llr}
+H_{k+1} = (I - \rho _k s_ky_k^{\top})H_k(I - \rho _k y_ks_k^{\top}) + \rho _k s_ks_k^{\top}
+\end{array}
+$$
+
+</div>
+
+This is the same update formula as given in in the BFGS algorithm [above](#bfgs-algorithm), but unexpanded. Using the expanded formula, one can calculate $H_{k+1}$ without doing any full $(n \times n) \times (n \times n)$ matrix multiplications. Expanding this version into the one given above is left as an exercise for the reader.
+
+## Proof
+
+We have shown the full BFGS algorithm. We have shown how one may derive the BFGS update formula from first principles, hopefully providing some intuition about how and why it works. However, our derivation included a seemingly arbitrary choice of $\hat{Q}$ over $I$ as our $\hat{y}$-to-$\hat{y}$ projection matrix. Furthermore, just because the formula we derived *works* doesn't guarantee that it is the *best* formula[^14]. Conveniently, proving that $\hat{Q}$ is the correct choice of projection matrix leads us right to the proof that our full update formula leads to the best possible $H_{k+1}$
+
+[^14]: Recall that here, "best" means the smallest weighted Frobenius norm of $H_{k+1} - H_k$, which is equivalent to the smallest un-weighted Frobenius norm of $\hat{H}_{k+1} - \hat{H_k}$
+
+We start by comparing how the choice of $Q$ over $I$ affects the norm of the difference between $H_{k+1}$ and $H_k$. The difference between $Q$ and $I$'s respective effects on the norm is easiest to see if we conduct a [change-of-basis](https://en.wikipedia.org/wiki/Change_of_basis) to a new vector space. Let $J$ be our new vector space with orthonormal basis $\{j_1, j_2, \ldots, j_n\}$. We define $j_1 = \frac{\hat{y}}{\lVert\hat{y}\rVert}$, and $\{j_2, \cdots , j_n\}$ as orthonormal vectors spanning the remainder of $J$. Because $J$ is an orthogonal matrix - composed of orthognal vectors each with a norm of 1 - the change of basis does not affect the Frobenius norm 
 
 <div class="math">
 
@@ -493,9 +611,9 @@ $$
 
 </div>
 
-Where $a$ is a scalar, $r$ is a vector of length $n-1$, and $C$ is an $(n-1)\times(n-1)$ symmetrical matrix[^14]. Next lets look at $Q$ in our new basis. For some matrix $M$ which maps vector space $A$ back to itself, the formula to change its basis to vectors space $B$ is
+Where $a$ is a scalar, $r$ is a vector of length $n-1$, and $C$ is an $(n-1)\times(n-1)$ symmetrical matrix[^15]. Next lets look at $Q$ in our new basis. For some matrix $M$ which maps vector space $A$ back to itself, the formula to change its basis to vectors space $B$ is
 
-[^14]: This representation actually has nothing to do with the change-of-basis. We can always write out a symmetrical matrix this way. We just haven't needed to before now
+[^15]: This representation actually has nothing to do with the change-of-basis. We can always write out a symmetrical matrix this way. We just haven't needed to before now
 
 <div class="math">
 
@@ -608,9 +726,9 @@ $$
 
 Which should be obvious in hindsight. $Q$ was a matrix which projected onto $span\{\hat{y}\}$. Now that we're in a vector space where the first basis vector is in the direction of $\hat{y}$, $[Q]_J$ is a matrix which extracts the first element of any vector on which it acts, and zeroes out all other elements. 
 
-Now for the definition of $\hat{P}$ in our new basis, which was the matrix which projected onto the orthogonal compliment of $span\{\hat{y}\}$[^15]
+Now for the definition of $\hat{P}$ in our new basis, which was the matrix which projected onto the orthogonal compliment of $span\{\hat{y}\}$[^16]
 
-[^15]: From that statement alone one could guess the definition of $[\hat{P}]_J$, but we'll show it anyway
+[^16]: From that statement alone one could guess the definition of $[\hat{P}]_J$, but we'll show it anyway
 
 <div class="math">
 
@@ -775,116 +893,5 @@ $$
 where $M$ is an arbitrary $(n-1)\times(n-1)$ symmetric matrix. This must be true because $[\hat{H}_{k+1}]_J$ must map $\hat{y}$ to itself, and in our changed bases $\hat{y}$ only has a non-zero element in the first position. Therefore the first column of $[\hat{H}_{k+1}]_J$ must be 1 followed by 0s. And since the matrix is symmetric, the first row must be the same. The remaining elements, $M$, are free. So since $[\hat{H}_{k+1}]_J$ must take the form above, and $[\hat{H}_{k}]_J$ takes the general form $\begin{bmatrix}a & r^{\top} \\ r & C\end{bmatrix}$, then the candidate $[\hat{H}]_J$ which is minimally distant from $[\hat{H}_k]_J$ is the one where $M=C$, which is exactly our $[\hat{Q}]_J$ construction.
 
 We have now proved not only that $Q$ is the optimal choice for the matrix that maps $\hat{y}$ to itself, but that the construction $\hat{P}\hat{H}_k\hat{P} + \hat{Q}$ is the optimal choice for $\hat{H}_k+1$, as it is the matrix closest to $\hat{H}_k$ which satisfies our secant condition
-
-### Part 4: Undo The Change of Variable
-
-Now that we've proved the optimality of our construction, the final step to get our true update algorithm is to reverse the change of variable. The tricky parts are done, and all that remains is some algebra to get our update formula.
-
-Recall that $\hat{H}_{k+1} = W^{\frac{1}{2}}H_kW^{\frac{1}{2}}$, so $\hat{H}_{k+1} = W^{-\frac{1}{2}}\hat{H}_{k+1}W^{-\frac{1}{2}}$. Let $c = \hat{y}^{\top}\hat{y}$ for brevity.
-
-<div class="math">
-
-$$
-\def\arraystretch{1.5}
-\begin{array}{llr}
-H_{k+1} &= W^{-\frac{1}{2}}\begin{bmatrix}(I - \frac{\hat{y}\hat{y}^{\top}}{c})\hat{H}_k(I - \frac{\hat{y}\hat{y}^{\top}}{c}) + \frac{\hat{y}\hat{y}^{\top}}{c}\end{bmatrix}W^{-\frac{1}{2}} \\
-\end{array}
-$$
-
-</div>
-
-
-Starting with that last term
-
-<div class="math">
-
-$$
-\def\arraystretch{1.5}
-\begin{array}{llr}
-W^{-\frac{1}{2}}\frac{\hat{y}\hat{y}^{\top}}{c}W^{-\frac{1}{2}} &= \frac{(W^{-\frac{1}{2}}\hat{y})(\hat{y}^{\top}W^{-\frac{1}{2}})}{c} \\
-&= \frac{(W^{-\frac{1}{2}}W^{\frac{1}{2}}s_k)(W^{-\frac{1}{2}}\hat{y})^{\top}}{c} \\
-&= \frac{s_ks_k^{\top}}{c}
-\end{array}
-$$
-
-</div>
-
-Now lets get $c$ out of there. Refer back to [figure 2.1.7](#y_hat-definitions) if you need a refresher. Those definitions will be quite important here.
-
-<div class="math">
-
-$$
-\def\arraystretch{1.5}
-\begin{array}{llr}
-c &= \hat{y}^{\top}\hat{y} \\
-&= (W^{\frac{1}{2}}s_k)^{\top}(W^{\frac{1}{2}}s_k) \\
-&= s_k^{\top}W^{\frac{1}{2}}W^{\frac{1}{2}}s_k \\
-&= s_k^{\top}Ws_k \\
-&= s_k^{\top}y_k
-\end{array}
-$$
-
-</div>
-
-Let's call this final value $\frac{1}{\rho _k}$, so $\rho _k = \frac{1}{s_k^{\top}y_k}$. Then
-
-<div class="math">
-
-$$
-\def\arraystretch{1.5}
-\begin{array}{llr}
-H_{k+1} &= W^{-\frac{1}{2}}[(I - \rho _k\hat{y}\hat{y}^{\top})\hat{H}_k(I - \rho _k\hat{y}\hat{y}^{\top})]W^{-\frac{1}{2}} + \rho _k s_ks_k^{\top} \\
-&= W^{-\frac{1}{2}}(I - \rho _k\hat{y}\hat{y}^{\top})W^{\frac{1}{2}}H_kW^{\frac{1}{2}}(I - \rho _k\hat{y}\hat{y}^{\top})W^{-\frac{1}{2}} + \rho _k s_ks_k^{\top}
-\end{array}
-$$
-
-</div>
-
-Lets look at the right part of that first term
-
-<div class="math">
-
-$$
-\def\arraystretch{1.5}
-\begin{array}{llr}
-W^{\frac{1}{2}}(I - \rho _k\hat{y}\hat{y}^{\top})W^{-\frac{1}{2}} &= W^{\frac{1}{2}}IW^{-\frac{1}{2}} - \rho _k (W^{\frac{1}{2}}\hat{y})(\hat{y}^{\top}W^{-\frac{1}{2}} )\\
-&= I - \rho _k (W^{\frac{1}{2}}W^{\frac{1}{2}}s_k)(W^{-\frac{1}{2}}\hat{y})^{\top} \\
-&= I -\rho _k (Ws_k)(W^{-\frac{1}{2}}W^{\frac{1}{2}}s_k) \\
-&= I - \rho _k y_k s_k^{\top}
-\end{array}
-$$
-
-</div>
-
-Now the left part of the first term
-
-<div class="math">
-
-$$
-\def\arraystretch{1.5}
-\begin{array}{llr}
-W^{-\frac{1}{2}}(I - \rho _k\hat{y}\hat{y}^{\top})W^{\frac{1}{2}} &= W^{-\frac{1}{2}}IW^{\frac{1}{2}} - \rho _k (W^{-\frac{1}{2}}\hat{y})(\hat{y}^{\top}W^{\frac{1}{2}}) \\
-&= I - \rho _k s_ky_k^{\top}
-\end{array}
-$$
-
-</div>
-
-Just like the term above, but we switched the sides of the $W^{\frac{1}{2}}$ and $W^{-\frac{1}{2}}$ so we switched which $\hat{y}$ turned into $s_k$ and which turned into $y_k$.
-
-This means the update formula that gives a new estimated inverse Hessian, incorporating the new curvature information while staying as close to the old estimate as possible is
-
-<div class="math">
-
-$$
-\def\arraystretch{1.5}
-\begin{array}{llr}
-H_{k+1} = (I - \rho _k s_ky_k^{\top})H_k(I - \rho _k y_ks_k^{\top}) + \rho _k s_ks_k^{\top}
-\end{array}
-$$
-
-</div>
-
-This is the same update formula as given in in the BFGS algorithm [above](#bfgs-algorithm), but unexpanded. Using the expanded formula, one can calculate $H_{k+1}$ without doing any full $(n \times n) \times (n \times n)$ matrix multiplications. Expanding this version into the one given above is left as an exercise for the reader.
 
 ## BFGS In Practice
