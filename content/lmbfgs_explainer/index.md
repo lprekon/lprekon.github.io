@@ -434,7 +434,7 @@ $$
 </div>
 
 
----- PUT ANOTHER GRAPH HERE ----
+{{< media src="generated_images/project_onto_y_p2.png" alt="Projecting the vector x onto both y and its complement" themed="true">}}
 
 Since $\hat{P}$ projects onto a subspace orthogonal to $Span\{\hat{y}\}$, $\hat{P}\hat{y} = 0$. We now have the mechanism to cancel action on $\hat{y}$. Our matrix for part 2 – something *like* $\hat{H}_k$ that maps $\hat{y}$ to 0 – will be
 
