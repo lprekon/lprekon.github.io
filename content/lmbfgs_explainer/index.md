@@ -17,12 +17,12 @@ LM-BFGS (and its predecessor BFGS) are second order algorithms, which incorporat
 ## Primer: Newtonian optmization
 
 
-Newtonion optimization rests on two ideas: 
+Newtonian optimization rests on two ideas: 
 1) At any minimum of a function, the function's derivative at that point must be zero. This should be obvious - if the derivative was not 0, then there exists a direction in which we can move and find a smaller function value.
 2) The function to minimize is quadratic - i.e. it is twice-differentiable and has a constant second derivative[^1]
 
 
-[^1]: Newtonion optimization can actually work on functions where this isn't strictly true, but its a load-bearing assumption for the algorithm
+[^1]: Newtonian optimization can actually work on functions where this isn't strictly true, but its a load-bearing assumption for the algorithm
 
 Let's examine this simple quadratic function, along with its first and second derivatives
 
@@ -33,21 +33,21 @@ Pretend we don't know the true shape of $f(x)$; we have evaluated $f$ at the red
 But let us now *assume* the true function we're trying to minimize is quadratic (still pretending like we can't see the blue lines). In that case, the first derivative must be linear, and its slope is the value of the second derivative. Then we solve a simple $y = mx + b$ equation to find where the first derivative is zero, and we know the function minimum. Indeed we can see that the minimum of $f(x)$ is at the root of $f'$
 
 
-Newtonion optimization uses the curvature of the function to estimate where the minimum *ought* to be, assuming the function is quadratic. Even if it's not a perfect bowl, newtonion optimization can still find the minimum quickly. Let's see what that looks like in practice.
+Newtonian optimization uses the curvature of the function to estimate where the minimum *ought* to be, assuming the function is quadratic. Even if it's not a perfect bowl, Newtonian optimization can still find the minimum quickly. Let's see what that looks like in practice.
 
-Here's visual representation of how newtonion optimization finds the minimum of a function compared to the more common gradient descent. The function here is the [Rosenbrock function](https://en.wikipedia.org/wiki/Rosenbrock_function)
+Here's visual representation of how Newtonian optimization finds the minimum of a function compared to the more common gradient descent. The function here is the [Rosenbrock function](https://en.wikipedia.org/wiki/Rosenbrock_function)
 
 {{< media src="media/videos/lmbfgs_explainer/1080p60/GradientVsNewtonian.mp4" caption="$f(x) = (1-x)^2 + 50(y-x^2)^2$" >}}
 
-Using gradient descent to find the minimum requires walking down the canyon walls - initially moving *away* from the minimum - before tracing a path along the valley floor. In this demonstration, Gradient descent takes 12,000 steps to reach the minimum, while newtonion optimization gets there in only 4 steps.
+Using gradient descent to find the minimum requires walking down the canyon walls - initially moving *away* from the minimum - before tracing a path along the valley floor. In this demonstration, Gradient descent takes 12,000 steps to reach the minimum, while Newtonian optimization gets there in only 4 steps.
 
-Despite this incredible feat, pure Newtonion optimization has a couple drawbacks, which is why it's almost never used in practice. The first is its sensitivity to the curvature of the function to be to minimized. If the function is not well approximated by a quadratic curve, then Newtonion optimization can give suboptimal results.
+Despite this incredible feat, pure Newtonian optimization has a couple drawbacks, which is why it's almost never used in practice. The first is its sensitivity to the curvature of the function to be to minimized. If the function is not well approximated by a quadratic curve, then Newtonian optimization can give suboptimal results.
 
 {{< media src="media/videos/lmbfgs_explainer/1080p60/SinusoidalValley.mp4" caption="$f(x) = \sin(x) + \sin(y)$" >}}
 
 Here, gradient descent is able to find the minimum but Newtonian optimization quickly gets stuck in a saddle point. This function is incredibly poorly approximated by a quadratic, so this is a worst-case scenario. 
 
-Newtonion optimization has one additional drawback, which will be present no matter how close the true function is to a quadratic, and which and motivates the creation of BFGS. To see it, lets walk through the math.
+Newtonian optimization has one additional drawback, which will be present no matter how close the true function is to a quadratic, and which and motivates the creation of BFGS. To see it, lets walk through the math.
 
 In order to derive the algorithm for Newtonian optimization, we start by approximating the true function with a a second-order [Taylor Expansion](https://en.wikipedia.org/wiki/Taylor_series)[^2]:
 
@@ -115,17 +115,17 @@ $$
 
 </div>
 
-And this brings us to the major problem with Newtonion optimization - that pesky $B^{-1}$. Gradient descent is only concerned with the Jacobian $∇f$ to determine each step, which scales lineraly with the number of inputs. But the Hessian $B$ grows quadratically with the number of inputs[^3]. Finding the Hessian for a function of one million variables (not very large by modern machine learning standards) would require calculating five-hundred-trillion unique partial second derivatives every step. The Hessian *then* needs to be inverted on each step, which is $O(n^{2.37})$ in the best case[^4].
+And this brings us to the major problem with Newtonian optimization - that pesky $B^{-1}$. Gradient descent is only concerned with the Jacobian $∇f$ to determine each step, which scales lineraly with the number of inputs. But the Hessian $B$ grows quadratically with the number of inputs[^3]. Finding the Hessian for a function of one million variables (not very large by modern machine learning standards) would require calculating five-hundred-trillion unique partial second derivatives every step. The Hessian *then* needs to be inverted on each step, which is $O(n^{2.37})$ in the best case[^4].
 
 [^3]: The Hessian [must be symmetric](https://en.wikipedia.org/wiki/Symmetry_of_second_derivatives), meaning the Hessian for a function of $n$ inputs has $\frac{(n-1)^2}{2} + n$ unique elements, instead of $n^2$
 
 [^4]: and thats $O(n^{2.37})$ with respect to the number of elements in the matrix, not the number of inputs to the original function. A five-hundred-trillion element matrix takes between $5.32e27$ and $1.25e35$ operations to invert. On a CPU running three billion operations per second, the sun would explode before you were even 1% of the way there
 
-As amazing as Newtonion optimization is, it suffers from a terrible case of combinatorial explosion, and is impractical for all but the smallest problems
+As amazing as Newtonian optimization is, it suffers from a terrible case of combinatorial explosion, and is impractical for all but the smallest problems
 
 ## Enter: Broyden, Fletcher, Goldfarb, and Shanno
 
-We are now thouroughly convinced that incorporating second-derivative information into our optimization algorithm is awesome in theory, but doing so naively is impractical. We must enter the world of [Quasi-Newtonion methods](https://en.wikipedia.org/wiki/Quasi-Newton_method) which seek to follow the wisdom of Newtonion Optimization without fully calculating the Hessian on each optimization step. The BFGS algorithm maintains an approximation $H \approx B^{-1}$ which gets updated as we go, saving us from having to calculate and then invert the Hessian for each and every step.
+We are now thouroughly convinced that incorporating second-derivative information into our optimization algorithm is awesome in theory, but doing so naively is impractical. We must enter the world of [Quasi-Newtonian methods](https://en.wikipedia.org/wiki/Quasi-Newton_method) which seek to follow the wisdom of Newtonian Optimization without fully calculating the Hessian on each optimization step. The BFGS algorithm maintains an approximation $H \approx B^{-1}$ which gets updated as we go, saving us from having to calculate and then invert the Hessian for each and every step.
 
 The BFGS algorithm works as follows. Starting with an initial estimate of $H = I$, a starting $x$ chosen arbitrarily, and let $k$ be the current iteration of the algorithm, then
 
@@ -145,7 +145,7 @@ $$
 
 </div>
 
-After which we return to step 1 and repeat, now with a better understanding of the curvature of the function thanks to our updated $H$. If you think that update equation in step 5 fell from the sky bestowed upon us by aliens, you are not alone. While there are [plenty](https://en.wikipedia.org/wiki/Broyden–Fletcher–Goldfarb–Shanno_algorithm#Algorithm) of [places](https://machinelearningmastery.com/bfgs-optimization-in-python/) on [the internet](https://www.cs.purdue.edu/homes/jhonorio/16spring-cs52000-quasinewton.pdf) that will tell you *about* the BFGS algorithm, none (in my opinion) do an adquate job explaining where it comes from. 
+After which we return to step 1 and repeat, now with a better understanding of the curvature of the function thanks to our updated $H$. If you think that update equation in step 5 fell from the sky bestowed upon us by aliens, you are not alone. While there are [plenty](https://en.wikipedia.org/wiki/Broyden–Fletcher–Goldfarb–Shanno_algorithm#Algorithm) of [places](https://machinelearningmastery.com/bfgs-optimization-in-python/) on [the internet](https://www.cs.purdue.edu/homes/jhonorio/16spring-cs52000-quasinewton.pdf) that will tell you *about* the BFGS algorithm, none (in my opinion) do an adequate job explaining where it comes from. 
 
 Let's explain that line search in step two, and then we'll get to the point of this article - deriving the update algorithm and proving that it is optimal
 
@@ -230,7 +230,7 @@ $$
 
 </div>
 
-However the Forbenius norm is sensitive to the elements of $x$ being measured in different magnitudes; If, say, $x_0$ was in meters but $x_1$ was in centimeters, a Frobenius norm might over-index on keeping the higher absolute value elements similar at the expense of other elements. So rather than a Frobenius norm, we'll use a weighted Frobenius norm.
+However the Frobenius norm is sensitive to the elements of $x$ being measured in different magnitudes; If, say, $x_0$ was in meters but $x_1$ was in centimeters, a Frobenius norm might over-index on keeping the higher absolute value elements similar at the expense of other elements. So rather than a Frobenius norm, we'll use a weighted Frobenius norm.
 
 Let $W$ be a matrix of weights. Then the weighted Frobenius norm is
 
@@ -249,7 +249,7 @@ We want to stay as close to $H_k$ as possible, so our goal is to find some $H$ w
 
 We are now ready to begin our derivation of the update algorithm[^11]
 
-[^11]: Had we picked a measure of closeness other than a weighted Frobenius norm, we wouldn't be working with BFGS but with [DFP](https://en.wikipedia.org/wiki/Davidon–Fletcher–Powell_formula), [SR1](https://en.wikipedia.org/wiki/Symmetric_rank-one), etc. There are a variety of quasi-newton methods out there, and this choice of "measure of closeness" is one of the primary differentiators
+[^11]: Had we picked a measure of closeness other than a weighted Frobenius norm, we wouldn't be working with BFGS but with [DFP](https://en.wikipedia.org/wiki/Davidon–Fletcher–Powell_formula), [SR1](https://en.wikipedia.org/wiki/Symmetric_rank-one), etc. There are a variety of quasi-Newton methods out there, and this choice of "measure of closeness" is one of the primary differentiators
 
 
 
@@ -347,7 +347,7 @@ $$
 
 </div>
 
-We then substitue the value of $G$ in for $W$ in our definition of $\hat{s}$ and we see...
+We then substitute the value of $G$ in for $W$ in our definition of $\hat{s}$ and we see...
 
 <div class="math">
 
@@ -372,7 +372,7 @@ $$
 
 </div>
 
-We get one additional property for free: since $\hat{H}$ must be symmetric, that means the orthogonal compliment to $\hat{y}$ must be closed. For any $w$ orthogonal to $\hat{y}$
+We get one additional property for free: since $\hat{H}$ must be symmetric, that means the orthogonal complement to $\hat{y}$ must be closed. For any $w$ orthogonal to $\hat{y}$
 
 <div class="math">
 
@@ -382,7 +382,7 @@ $$
 
 </div>
 
-So if $w$ is orthogonal to $\hat{y}$, then $\hat{H}w$ must also be orthogonal to $\hat{y}$. Our desired $\hat{H}$ must send $\hat{y}$ to $\hat{y}$, and must not send any vector in the orthogonal compliment in the $\hat{y}$-direction. Set this fact aside for now; we'll use it later in step 3 to prove that what we do then is in fact optimal.
+So if $w$ is orthogonal to $\hat{y}$, then $\hat{H}w$ must also be orthogonal to $\hat{y}$. Our desired $\hat{H}$ must send $\hat{y}$ to $\hat{y}$, and must not send any vector in the orthogonal complement in the $\hat{y}$-direction. Set this fact aside for now; we'll use it later in step 3 to prove that what we do then is in fact optimal.
 
 So we're looking for a matrix $\hat{H}$ which maps $\hat{y}$ to itself, still mindful of staying as close to $\hat{H_k}$ as possible (and always symmetric). Our method will be thus: modify $\hat{H}_k$'s in order to cancel its current action on $\hat{y}$, then construct and add in a matrix that maps $\hat{y}$ as we desire [^13].
 
@@ -397,7 +397,7 @@ Let $Q$ be a matrix that projects onto the subspace spanned by $\hat{y}$. In oth
 
 {{< media src="generated_images/project_onto_y_p1.png" alt="Projecting the vector x onto the subspace spanned by y" themed="true">}}
 
-Then lets define $x$ in terms of the portional parallel to $\hat{y}$, $Qx$, and the remaining part, which we'll call $z$
+Then lets define $x$ in terms of the portion parallel to $\hat{y}$, $Qx$, and the remaining part, which we'll call $z$
 
 <div class="math">
 
@@ -417,7 +417,7 @@ $$
 
 </div>
 
-if we solve for $z$, that portion of $x$ orthagonal to $\hat{y}$, we get
+if we solve for $z$, that portion of $x$ orthogonal to $\hat{y}$, we get
 
 <div class="math">
 
@@ -431,7 +431,7 @@ $$
 
 </div>
 
-So for any matrix $Q$ which projects onto a subspace $L$, the matrix $I-Q$ will project onto the subspace orthogonal to $L$. Lets call this complimentary matrix $P$
+So for any matrix $Q$ which projects onto a subspace $L$, the matrix $I-Q$ will project onto the subspace orthogonal to $L$. Lets call this complementary matrix $P$
 
 <div class="math">
 
@@ -587,7 +587,7 @@ We have shown the full BFGS algorithm. We have shown how one may derive the BFGS
 
 [^14]: Recall that here, "best" means the smallest weighted Frobenius norm of $H_{k+1} - H_k$, which is equivalent to the smallest un-weighted Frobenius norm of $\hat{H}_{k+1} - \hat{H_k}$
 
-We start by comparing how the choice of $Q$ over $I$ affects the norm of the difference between $H_{k+1}$ and $H_k$. The difference between $Q$ and $I$'s respective effects on the norm is easiest to see if we conduct a [change-of-basis](https://en.wikipedia.org/wiki/Change_of_basis) to a new vector space. Let $J$ be our new vector space with orthonormal basis $\{j_1, j_2, \ldots, j_n\}$. We define $j_1 = \frac{\hat{y}}{\lVert\hat{y}\rVert}$, and $\{j_2, \cdots , j_n\}$ as orthonormal vectors spanning the remainder of $J$. Because $J$ is an orthogonal matrix - composed of orthognal vectors each with a norm of 1 - the change of basis does not affect the Frobenius norm 
+We start by comparing how the choice of $Q$ over $I$ affects the norm of the difference between $H_{k+1}$ and $H_k$. The difference between $Q$ and $I$'s respective effects on the norm is easiest to see if we conduct a [change-of-basis](https://en.wikipedia.org/wiki/Change_of_basis) to a new vector space. Let $J$ be our new vector space with orthonormal basis $\{j_1, j_2, \ldots, j_n\}$. We define $j_1 = \frac{\hat{y}}{\lVert\hat{y}\rVert}$, and $\{j_2, \cdots , j_n\}$ as orthonormal vectors spanning the remainder of $J$. Because $J$ is an orthogonal matrix - composed of orthogonal vectors each with a norm of 1 - the change of basis does not affect the Frobenius norm 
 
 <div class="math">
 
@@ -631,7 +631,7 @@ $$
 
 </div>
 
-In other words we can construct a transformation in the new basis which is equivalent to $M$ in the old basis by sandwhiching $M$ between the change-of-basis matrix $P_{B\leftarrow A}$ and its inverse. Now, the change-of-basis matrix is constructed by taking the basis vectors of the source vector space and replacing them with their respective [coordinate vectors](https://en.wikipedia.org/wiki/Coordinate_vector) in the target vector space. Because we're starting in the standard basis, the change-of-basis matrix is simply the basis vectors of the target vector space. So
+In other words we can construct a transformation in the new basis which is equivalent to $M$ in the old basis by sandwiching $M$ between the change-of-basis matrix $P_{B\leftarrow A}$ and its inverse. Now, the change-of-basis matrix is constructed by taking the basis vectors of the source vector space and replacing them with their respective [coordinate vectors](https://en.wikipedia.org/wiki/Coordinate_vector) in the target vector space. Because we're starting in the standard basis, the change-of-basis matrix is simply the basis vectors of the target vector space. So
 
 <div class="math">
 
@@ -726,7 +726,7 @@ $$
 
 Which should be obvious in hindsight. $Q$ was a matrix which projected onto $span\{\hat{y}\}$. Now that we're in a vector space where the first basis vector is in the direction of $\hat{y}$, $[Q]_J$ is a matrix which extracts the first element of any vector on which it acts, and zeroes out all other elements. 
 
-Now for the definition of $\hat{P}$ in our new basis, which was the matrix which projected onto the orthogonal compliment of $span\{\hat{y}\}$[^16]
+Now for the definition of $\hat{P}$ in our new basis, which was the matrix which projected onto the orthogonal complement of $span\{\hat{y}\}$[^16]
 
 [^16]: From that statement alone one could guess the definition of $[\hat{P}]_J$, but we'll show it anyway
 
