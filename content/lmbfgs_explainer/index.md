@@ -486,48 +486,60 @@ $$
 
 </div>
 
-Now all that's left is to undo the change of variable to get our true update formula.
+Now all that's left is to undo the change of variable to get our true update formula. 
 
 Recall that $\hat{H} = W^{\frac{1}{2}}HW^{\frac{1}{2}}$, so $H = W^{-\frac{1}{2}}\hat{H}W^{-\frac{1}{2}}$. 
 
-Let $c = \hat{y}^{\top}\hat{y}$ for brevity.
+Refer back to [figure 2.1.7](#y_hat-definitions) if you need a refresher. Those definitions will be quite important here.
 
 <div class="math">
 
 $$
 \def\arraystretch{1.5}
 \begin{array}{llr}
-H_{k+1} &= W^{-\frac{1}{2}}\begin{bmatrix}(I - \frac{\hat{y}\hat{y}^{\top}}{c})\hat{H}_k(I - \frac{\hat{y}\hat{y}^{\top}}{c}) + \frac{\hat{y}\hat{y}^{\top}}{c}\end{bmatrix}W^{-\frac{1}{2}} \\
+H_{k+1} &= 
+W^{-\frac{1}{2}}
+\begin{bmatrix}
+(I - \frac{\hat{y}\hat{y}^{\top}}{\hat{y}^{\top}\hat{y}})\hat{H}_k(I - \frac{\hat{y}\hat{y}^{\top}}{\hat{y}^{\top}\hat{y}}) + \frac{\hat{y}\hat{y}^{\top}}{\hat{y}^{\top}\hat{y}}
+\end{bmatrix}
+W^{-\frac{1}{2}} \\
+&= W^{-\frac{1}{2}}
+\begin{bmatrix}
+(I - \frac{\hat{y}\hat{y}^{\top}}{\hat{y}^{\top}\hat{y}})\hat{H}_k(I - \frac{\hat{y}\hat{y}^{\top}}{\hat{y}^{\top}\hat{y}})
+\end{bmatrix}
+W^{-\frac{1}{2}} + W^{-\frac{1}{2}}
+\begin{bmatrix}\frac{\hat{y}\hat{y}^{\top}}{\hat{y}^{\top}\hat{y}}
+\end{bmatrix}
+W^{-\frac{1}{2}}
 \end{array}
 $$
 
 </div>
 
-
-Starting with that last term
+Starting with the right part of that sum
 
 <div class="math">
 
 $$
 \def\arraystretch{1.5}
 \begin{array}{llr}
-W^{-\frac{1}{2}}\frac{\hat{y}\hat{y}^{\top}}{c}W^{-\frac{1}{2}} &= \frac{(W^{-\frac{1}{2}}\hat{y})(\hat{y}^{\top}W^{-\frac{1}{2}})}{c} \\
-&= \frac{(W^{-\frac{1}{2}}W^{\frac{1}{2}}s_k)(W^{-\frac{1}{2}}\hat{y})^{\top}}{c} \\
-&= \frac{s_ks_k^{\top}}{c}
+W^{-\frac{1}{2}}\frac{\hat{y}\hat{y}^{\top}}{\hat{y}^{\top}\hat{y}}W^{-\frac{1}{2}} &= \frac{(W^{-\frac{1}{2}}\hat{y})(\hat{y}^{\top}W^{-\frac{1}{2}})}{\hat{y}^{\top}\hat{y}} \\
+&= \frac{(W^{-\frac{1}{2}}W^{\frac{1}{2}}s_k)(W^{-\frac{1}{2}}\hat{y})^{\top}}{\hat{y}^{\top}\hat{y}} \\
+&= \frac{s_k(W^{-\frac{1}{2}}W^{\frac{1}{2}}s_k)^{\top}}{\hat{y}^{\top}\hat{y}} \\
+&= \frac{s_ks_k^{\top}}{\hat{y}^{\top}\hat{y}}
 \end{array}
 $$
 
 </div>
 
-Now lets get $c$ out of there. Refer back to [figure 2.1.7](#y_hat-definitions) if you need a refresher. Those definitions will be quite important here.
+Let's deal with that denominator next
 
 <div class="math">
 
 $$
 \def\arraystretch{1.5}
 \begin{array}{llr}
-c &= \hat{y}^{\top}\hat{y} \\
-&= (W^{\frac{1}{2}}s_k)^{\top}(W^{\frac{1}{2}}s_k) \\
+\hat{y}^{\top}\hat{y} &= (W^{\frac{1}{2}}s_k)^{\top}(W^{\frac{1}{2}}s_k) \\
 &= s_k^{\top}W^{\frac{1}{2}}W^{\frac{1}{2}}s_k \\
 &= s_k^{\top}Ws_k \\
 &= s_k^{\top}y_k
@@ -536,7 +548,9 @@ $$
 
 </div>
 
-Let's call this final value $\frac{1}{\rho _k}$, so $\rho _k = \frac{1}{s_k^{\top}y_k}$. Then
+Let's call this final value $\frac{1}{\rho _k}$, so $\rho _k = \frac{1}{s_k^{\top}y_k}$. 
+
+We'll substitute $\rho _k$ in, and change $\hat{H}_k$ back into $H_k$ 
 
 <div class="math">
 
@@ -550,7 +564,7 @@ $$
 
 </div>
 
-Lets look at the right part of that first term
+Now, let's work on that first term. Starting from the right-hand side
 
 <div class="math">
 
@@ -559,14 +573,14 @@ $$
 \begin{array}{llr}
 W^{\frac{1}{2}}(I - \rho _k\hat{y}\hat{y}^{\top})W^{-\frac{1}{2}} &= W^{\frac{1}{2}}IW^{-\frac{1}{2}} - \rho _k (W^{\frac{1}{2}}\hat{y})(\hat{y}^{\top}W^{-\frac{1}{2}} )\\
 &= I - \rho _k (W^{\frac{1}{2}}W^{\frac{1}{2}}s_k)(W^{-\frac{1}{2}}\hat{y})^{\top} \\
-&= I -\rho _k (Ws_k)(W^{-\frac{1}{2}}W^{\frac{1}{2}}s_k) \\
+&= I -\rho _k (Ws_k)(W^{-\frac{1}{2}}W^{\frac{1}{2}}s_k)^{\top} \\
 &= I - \rho _k y_k s_k^{\top}
 \end{array}
 $$
 
 </div>
 
-Now the left part of the first term
+Now the left-hand side
 
 <div class="math">
 
@@ -580,7 +594,7 @@ $$
 
 </div>
 
-Just like the term above, but we switched the sides of the $W^{\frac{1}{2}}$ and $W^{-\frac{1}{2}}$ so we switched which $\hat{y}$ turned into $s_k$ and which turned into $y_k$.
+Just like 4.4.7, but since the  sides of the $W^{\frac{1}{2}}$ and $W^{-\frac{1}{2}}$ switched, we switched which $\hat{y}$ turned into $s_k$ and which $\hat{y}$ turned into $y_k$.
 
 This means the update formula that gives a new estimated inverse Hessian, incorporating the new curvature information while staying as close to the old estimate as possible is
 
@@ -595,7 +609,7 @@ $$
 
 </div>
 
-This is the same update formula as given in in the BFGS algorithm [above](#bfgs-algorithm), but unexpanded. Using the expanded formula, one can calculate $H_{k+1}$ without doing any full $(n \times n) \times (n \times n)$ matrix multiplications. Expanding this version into the one given above is left as an exercise for the reader.
+This is the same update formula as given in in the BFGS algorithm above in step 5 of [fig 2.0.1](#bfgs-algorithm), but unexpanded. Expanding the formula allows one to calculate $H_{k+1}$ without doing any full $(n \times n) \times (n \times n)$ matrix multiplications, only multiplying $(n \times n)$ matrices with $n$-length vectors instead. Expanding this version into the one given above is left as an exercise for the reader.
 
 ## Proof
 
@@ -613,7 +627,7 @@ $$
 
 </div>
 
-So the construction with the lowest norm in our new basis will have the lowest norm outside of it as well. We can define our existing approximation of the inverse Hessian generally as
+So the construction with the lowest norm in our new basis will have the lowest norm outside of it as well. Since $\hat{H}_k$ is symmetric, we can define it in our new basis in the general form:
 
 <div class="math">
 
@@ -627,7 +641,7 @@ $$
 
 </div>
 
-Where $a$ is a scalar, $r$ is a vector of length $n-1$, and $C$ is an $(n-1)\times(n-1)$ symmetrical matrix[^15]. Next lets look at $\hat{Q}$ in our new basis. For some matrix $M$ which maps vector space $A$ back to itself, the formula to change its basis to vectors space $B$ is
+Where $a$ is a scalar, $r$ is a vector of length $n-1$, and $C$ is an $(n-1)\times(n-1)$ symmetrical matrix[^15]. Next lets look at $\hat{Q}$ in our new basis. For any matrix $M$ which maps vector space $A$ back to itself, the formula to change its basis to vectors space $B$ is as follows
 
 [^15]: This representation actually has nothing to do with the change-of-basis. We can always write out a symmetrical matrix this way. We just haven't needed to before now
 
@@ -647,7 +661,7 @@ $$
 
 </div>
 
-In other words we can construct a transformation in the new basis which is equivalent to $M$ in the old basis by sandwiching $M$ between the change-of-basis matrix $P_{B\leftarrow A}$ and its inverse. Now, the change-of-basis matrix is constructed by taking the basis vectors of the source vector space and replacing them with their respective [coordinate vectors](https://en.wikipedia.org/wiki/Coordinate_vector) in the target vector space. Because we're starting in the standard basis, the change-of-basis matrix is simply the basis vectors of the target vector space. So
+In other words we can construct a transformation in the new basis which is equivalent to $M$ in the old basis by sandwiching $M$ between the change-of-basis matrix $P_{B\leftarrow A}$ and its inverse. We will do this with $\hat{Q}$ and the matrix which changes our basis from the [standard basis](https://en.wikipedia.org/wiki/Standard_basis) to $J$. In general, a change-of-basis matrix is constructed by taking the basis vectors of the source vector space and replacing them with their respective [coordinate vectors](https://en.wikipedia.org/wiki/Coordinate_vector) in the target vector space. Because we're starting in the standard basis, the change-of-basis matrix is simply the basis vectors of the target vector space. So
 
 <div class="math">
 
@@ -674,10 +688,10 @@ $$
 \begin{array}{llr}
 J^{\top}\hat{y} &= 
 \begin{bmatrix}
-j_{1-1} & j_{1-2} & \dotsc & j_{1-n} \\
-j_{2-1} & j_{2-2} & \dotsc & j_{2-n}\\
+j_{1,1} & j_{1,2} & \dotsc & j_{1,n} \\
+j_{2,1} & j_{2,2} & \dotsc & j_{2,n}\\
 \vdots & & \ddots  & \vdots\\
-j_{n-1} & j_{n-2} & \dotsc & j_{n-n}
+j_{n,1} & j_{n,2} & \dotsc & j_{n,n}
 \end{bmatrix}
 \begin{bmatrix}
 \hat{y}_1 \\
@@ -740,9 +754,9 @@ $$
 
 </div>
 
-Which should be obvious in hindsight. $\hat{Q}$ was a matrix which projected onto $span\{\hat{y}\}$. Now that we're in a vector space where the first basis vector is in the direction of $\hat{y}$, $[Q]_J$ is a matrix which extracts the first element of any vector on which it acts, and zeroes out all other elements. 
+Which should be obvious in hindsight. $\hat{Q}$ was a matrix which projected onto $Span\{\hat{y}\}$. Now that we're in a vector space where the first basis vector is in the direction of $\hat{y}$, $[Q]_J$ is a matrix which extracts the first element of any vector on which it acts, and zeroes out all other elements. 
 
-Now for the definition of $\hat{P}$ in our new basis, which was the matrix which projected onto the orthogonal complement of $span\{\hat{y}\}$[^16]
+Next up, the definition of $\hat{P}$ in our new basis, which was the matrix which projected onto the orthogonal complement of $Span\{\hat{y}\}$[^16]
 
 [^16]: From that statement alone one could guess the definition of $[\hat{P}]_J$, but we'll show it anyway
 
@@ -754,6 +768,14 @@ $$
 [\hat{P}]_J &= J^{\top}(I - \hat{Q})J \\
 &= J^{\top}IJ - J^{\top}\hat{Q}J \\
 &= I - [\hat{Q}]_J \\
+&= \begin{bmatrix}
+1 & 0 \\
+0 & I_{n-1}
+\end{bmatrix} -
+\begin{bmatrix}
+1 & 0 \\
+0 & 0
+\end{bmatrix} \\
 &= \begin{bmatrix}
 0 & 0 \\
 0 & I_{n-1}
@@ -887,7 +909,7 @@ $$
 
 </div>
 
-The latter of which is obviously bigger for $n > 1$. We can, in fact, prove that $\hat{Q}$ is the *best* possible matrix here, and that there does not exist any other matrix which maps $\hat{y}$ to itself and produces a smaller norm. 
+The latter of which is obviously bigger for $n > 1$. We have therefore proved that using $\hat{Q}$ to construct $\hat{H}_{k+1}$ is better than using $I$. But might there exist some *other* matrix out there which would map $\hat{y}$ to itself and produce an even smaller norm than $Q$? No, there might'nt. And in proving so, that $Q$ is the best possible matrix here, we end up proving that $\hat{H}_{k+1} = \hat{Q} + \hat{P}\hat{H}_k\hat{P}$ is the best possible $\hat{H}_{k+1}$ given our choice of norm.
 
 In our changed basis, it must be the case that
 
@@ -906,8 +928,34 @@ $$
 
 </div>
 
-where $M$ is an arbitrary $(n-1)\times(n-1)$ symmetric matrix. This must be true because $[\hat{H}_{k+1}]_J$ must map $\hat{y}$ to itself, and in our changed bases $\hat{y}$ only has a non-zero element in the first position. Therefore the first column of $[\hat{H}_{k+1}]_J$ must be 1 followed by 0s. And since the matrix is symmetric, the first row must be the same. The remaining elements, $M$, are free. So since $[\hat{H}_{k+1}]_J$ must take the form above, and $[\hat{H}_{k}]_J$ takes the general form $\begin{bmatrix}a & r^{\top} \\ r & C\end{bmatrix}$, then the candidate $[\hat{H}]_J$ which is minimally distant from $[\hat{H}_k]_J$ is the one where $M=C$, which is exactly our $[\hat{Q}]_J$ construction.
+where $M$ is an arbitrary $(n-1)\times(n-1)$ symmetric matrix. This must be true because $[\hat{H}_{k+1}]_J$ must map $\hat{y}$ to itself, and in our changed bases $\hat{y}$ only has a non-zero element in the first position. Therefore the first column of $[\hat{H}_{k+1}]_J$ must be 1 followed by 0s. And since the matrix is symmetric, the first row must be the same. The remaining elements, $M$, are free. So since $[\hat{H}_{k+1}]_J$ must take the form above, and $[\hat{H}_{k}]_J$ takes the general form $\begin{bmatrix}a & r^{\top} \\ r & C\end{bmatrix}$, then the general form of the norm is
 
-We have now proved not only that $\hat{Q}$ is the optimal choice for the matrix that maps $\hat{y}$ to itself, but that the construction $\hat{P}\hat{H}_k\hat{P} + \hat{Q}$ is the optimal choice for $\hat{H}_k+1$, as it is the matrix closest to $\hat{H}_k$ which satisfies our secant condition
+
+<div class="math">
+
+$$
+\def\arraystretch{1.5}
+\begin{array}{ll}
+\lVert [\hat{H}_{k+1}]_J - [\hat{H}_k]_J \rVert _F &= \lVert 
+    \begin{bmatrix}
+    1 & 0 \\
+    0 & M
+    \end{bmatrix} - \begin{bmatrix}
+    a & r^{\top} \\
+    r & C
+    \end{bmatrix}
+    \rVert _F \\
+    &= \lVert \begin{bmatrix}
+    1 - a & -r^{\top} \\
+    -r & M - C
+    \end{bmatrix} \rVert _F
+\end{array}
+$$
+
+</div>
+
+So the version of $[\hat{H}_{k+1}]_J$ which is minimally distant from $[\hat{H}_k]_J$ is the one where $M=C$, which is exactly our $[\hat{Q}]_J$ construction.
+
+We have now proved that $\hat{Q}$ is the optimal choice for the matrix that maps $\hat{y}$ to itself, and that the construction $\hat{P}\hat{H}_k\hat{P} + \hat{Q}$ is the optimal choice for $\hat{H}_{k+1}$, as it is the matrix closest to $\hat{H}_k$ – and thus the $H_{k+1}$ closest to $H_k$ – which satisfies our secant condition
 
 ## BFGS In Practice
