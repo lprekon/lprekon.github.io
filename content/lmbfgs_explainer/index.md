@@ -377,54 +377,52 @@ So we're looking for a matrix $\hat{H}$ which maps $\hat{y}$ to itself, still mi
 [^13]: If this also seems plucked from the sky, bear with me. It will all work out
 
 
-
-
 ### Part 2: Cancel Action On $\hat{y}$ 
 
-Let $Q$ be a matrix that projects onto the subspace spanned by $\hat{y}$. In other words, for any vector $x$, the result of $Qx$ will be the portion of $x$ parallel to $\hat{y}$
+Let $\hat{Q}$ be a matrix that projects onto the subspace spanned by $\hat{y}$. In other words, for any vector $x$, the result of $\hat{Q}x$ will be the portion of $x$ parallel to $\hat{y}$
 
 {{< media src="generated_images/project_onto_y_p1.png" alt="Projecting the vector x onto the subspace spanned by y" themed="true">}}
 
-Then lets define $x$ in terms of the portion parallel to $\hat{y}$, $Qx$, and the remaining part, which we'll call $z$
+Then lets define $x$ in terms of the portion parallel to $\hat{y}$ – $\hat{Q}x$ – and the remaining part, which we'll call $z$
 
 <div class="math">
 
 $$
-x = Qx + z
+x = \hat{Q}x + z
 $$
 
 </div>
 
-$Q$ takes the general form
+$\hat{Q}$ takes the general form
 
 <div class="math">
 
 $$
-Q = \frac{\hat{y}\hat{y}^{\top}}{\hat{y}^{\top}\hat{y}}
+\hat{Q} = \frac{\hat{y}\hat{y}^{\top}}{\hat{y}^{\top}\hat{y}}
 $$
 
 </div>
 
-if we solve for $z$, that portion of $x$ orthogonal to $\hat{y}$, we get
+if we solve for $z$, we get
 
 <div class="math">
 
 $$
 \def\arraystrech{1.5}
 \begin{array}{ll}
-z &= x - Qx \\
-&= (I - Q)x \\
+z &= x - \hat{Q}x \\
+&= (I - \hat{Q})x \\
 \end{array}
 $$
 
 </div>
 
-So for any matrix $Q$ which projects onto a subspace $L$, the matrix $I-Q$ will project onto the subspace orthogonal to $L$. Lets call this complementary matrix $P$
+So for any matrix $\hat{Q}$ which projects onto a subspace $L$, the matrix $I-\hat{Q}$ will project onto the subspace orthogonal to $L$. Lets call this complementary matrix $\hat{P}$
 
 <div class="math">
 
 $$
-P = I - Q = I - \frac{\hat{y}\hat{y}^{\top}}{\hat{y}^{\top}\hat{y}}
+\hat{P} = I - \hat{Q} = I - \frac{\hat{y}\hat{y}^{\top}}{\hat{y}^{\top}\hat{y}}
 $$
 
 </div>
@@ -432,37 +430,67 @@ $$
 
 ---- PUT ANOTHER GRAPH HERE ----
 
-Since $P$ projects onto a subspace orthogonal to $Span\{\hat{y}\}$, $P\hat{y} = 0$. We now have the mechanism to cancel action on $\hat{y}$. Our matrix for part 2 - something *like* $\hat{H}_k$ that maps $\hat{y}$ to 0 -  will be
+Since $\hat{P}$ projects onto a subspace orthogonal to $Span\{\hat{y}\}$, $\hat{P}\hat{y} = 0$. We now have the mechanism to cancel action on $\hat{y}$. Our matrix for part 2 – something *like* $\hat{H}_k$ that maps $\hat{y}$ to 0 – will be
 
 <div class="math">
 
 $$
-P\hat{H}_kP
+\hat{P}\hat{H}_k\hat{P}
 $$
 
 </div>
 
 
-The right $P$ kills all action on $\hat{y}$ and maps it to 0. The left $P$ ensures that this matrix remains symmetric.
+The right $\hat{P}$ kills all action on $\hat{y}$ and maps it to 0. The left $\hat{P}$ ensures that this matrix remains symmetric.
 
 <div class="math">
 
 $$
-P\hat{H}_kP\hat{y} = P\hat{H}_k(Py) = P\hat{H}_k0 = 0
+\hat{P}\hat{H}_k\hat{P}\hat{y} = \hat{P}\hat{H}_k(\hat{P}y) = \hat{P}\hat{H}_k0 = 0
 $$
 
 </div>
 
 ### Part 3: Map $\hat{y}$ to $\hat{y}$
 
-For the second part of our construction we need a matrix that that maps $\hat{y}$ to itself. The identity matrix $I$ is an obvious choice, but we also have $Q$, the matrix we just defined above which projects onto $span\{\hat{y}\}$. It turns out that $\hat{Q}$ is the better choice. We will prove this later.
+For the second part of our construction we need a matrix that that maps $\hat{y}$ to itself. The identity matrix $I$ is an obvious choice, but we also have $\hat{Q}$, the matrix we just defined above which projects onto $Span\{\hat{y}\}$. It turns out that $\hat{Q}$ is the better choice. We will prove this later.
 
 
 ### Part 4: Undo The Change of Variable
 
-Now that we've got all the pieces of our construction, the final step to get our true update algorithm is to reverse the change of variable. The tricky parts are done, and all that remains is some algebra to get our update formula.
+Now that we've got all the pieces of our construction, now we put them toghether. 
 
-Recall that $\hat{H}_{k+1} = W^{\frac{1}{2}}H_kW^{\frac{1}{2}}$, so $\hat{H}_{k+1} = W^{-\frac{1}{2}}\hat{H}_{k+1}W^{-\frac{1}{2}}$. Let $c = \hat{y}^{\top}\hat{y}$ for brevity.
+In our changed variable, our update formula is
+
+<div class="math">
+
+$$
+\hat{H}_{k+1} = \hat{Q} + \hat{P}\hat{H}_k\hat{P}
+$$
+
+</div>
+
+The term on the right is a matrix close to $\hat{H}_k$, modified to map $\hat{y}$ to $0$, and the term on the left is a new matrix which maps $\hat{y}$ to itself, as required by our secant condition.
+
+<div class="math">
+
+$$
+\def\arraystretch{1.5}
+\begin{array}{ll}
+\hat{H}_{k+1}\hat{y} &= (\hat{Q} + \hat{P}\hat{H}_k\hat{P})\hat{y} \\
+&= \hat{Q}\hat{y} +  \hat{P}\hat{H}_k\hat{P}\hat{y} \\
+&= \hat{y} + 0 \\
+&= \hat{y}
+\end{array}
+$$
+
+</div>
+
+Now all that's left is to undo the change of variable to get our true update formula.
+
+Recall that $\hat{H} = W^{\frac{1}{2}}HW^{\frac{1}{2}}$, so $H = W^{-\frac{1}{2}}\hat{H}W^{-\frac{1}{2}}$. 
+
+Let $c = \hat{y}^{\top}\hat{y}$ for brevity.
 
 <div class="math">
 
@@ -575,7 +603,7 @@ We have shown the full BFGS algorithm. We have shown how one may derive the BFGS
 
 [^14]: Recall that here, "best" means the smallest weighted Frobenius norm of $H_{k+1} - H_k$, which is equivalent to the smallest un-weighted Frobenius norm of $\hat{H}_{k+1} - \hat{H_k}$
 
-We start by comparing how the choice of $Q$ over $I$ affects the norm of the difference between $H_{k+1}$ and $H_k$. The difference between $Q$ and $I$'s respective effects on the norm is easiest to see if we conduct a [change-of-basis](https://en.wikipedia.org/wiki/Change_of_basis) to a new vector space. Let $J$ be our new vector space with orthonormal basis $\{j_1, j_2, \ldots, j_n\}$. We define $j_1 = \frac{\hat{y}}{\lVert\hat{y}\rVert}$, and $\{j_2, \cdots , j_n\}$ as orthonormal vectors spanning the remainder of $J$. Because $J$ is an orthogonal matrix - composed of orthogonal vectors each with a norm of 1 - the change of basis does not affect the Frobenius norm 
+We start by comparing how the choice of $\hat{Q}$ over $I$ affects the norm of the difference between $H_{k+1}$ and $H_k$. The difference between $\hat{Q}$ and $I$'s respective effects on the norm is easiest to see if we conduct a [change-of-basis](https://en.wikipedia.org/wiki/Change_of_basis) to a new vector space. Let $J$ be our new vector space with orthonormal basis $\{j_1, j_2, \ldots, j_n\}$. We define $j_1 = \frac{\hat{y}}{\lVert\hat{y}\rVert}$, and $\{j_2, \cdots , j_n\}$ as orthonormal vectors spanning the remainder of $J$. Because $J$ is an orthogonal matrix - composed of orthogonal vectors each with a norm of 1 - the change of basis does not affect the Frobenius norm 
 
 <div class="math">
 
@@ -599,7 +627,7 @@ $$
 
 </div>
 
-Where $a$ is a scalar, $r$ is a vector of length $n-1$, and $C$ is an $(n-1)\times(n-1)$ symmetrical matrix[^15]. Next lets look at $Q$ in our new basis. For some matrix $M$ which maps vector space $A$ back to itself, the formula to change its basis to vectors space $B$ is
+Where $a$ is a scalar, $r$ is a vector of length $n-1$, and $C$ is an $(n-1)\times(n-1)$ symmetrical matrix[^15]. Next lets look at $\hat{Q}$ in our new basis. For some matrix $M$ which maps vector space $A$ back to itself, the formula to change its basis to vectors space $B$ is
 
 [^15]: This representation actually has nothing to do with the change-of-basis. We can always write out a symmetrical matrix this way. We just haven't needed to before now
 
@@ -712,7 +740,7 @@ $$
 
 </div>
 
-Which should be obvious in hindsight. $Q$ was a matrix which projected onto $span\{\hat{y}\}$. Now that we're in a vector space where the first basis vector is in the direction of $\hat{y}$, $[Q]_J$ is a matrix which extracts the first element of any vector on which it acts, and zeroes out all other elements. 
+Which should be obvious in hindsight. $\hat{Q}$ was a matrix which projected onto $span\{\hat{y}\}$. Now that we're in a vector space where the first basis vector is in the direction of $\hat{y}$, $[Q]_J$ is a matrix which extracts the first element of any vector on which it acts, and zeroes out all other elements. 
 
 Now for the definition of $\hat{P}$ in our new basis, which was the matrix which projected onto the orthogonal complement of $span\{\hat{y}\}$[^16]
 
@@ -880,6 +908,6 @@ $$
 
 where $M$ is an arbitrary $(n-1)\times(n-1)$ symmetric matrix. This must be true because $[\hat{H}_{k+1}]_J$ must map $\hat{y}$ to itself, and in our changed bases $\hat{y}$ only has a non-zero element in the first position. Therefore the first column of $[\hat{H}_{k+1}]_J$ must be 1 followed by 0s. And since the matrix is symmetric, the first row must be the same. The remaining elements, $M$, are free. So since $[\hat{H}_{k+1}]_J$ must take the form above, and $[\hat{H}_{k}]_J$ takes the general form $\begin{bmatrix}a & r^{\top} \\ r & C\end{bmatrix}$, then the candidate $[\hat{H}]_J$ which is minimally distant from $[\hat{H}_k]_J$ is the one where $M=C$, which is exactly our $[\hat{Q}]_J$ construction.
 
-We have now proved not only that $Q$ is the optimal choice for the matrix that maps $\hat{y}$ to itself, but that the construction $\hat{P}\hat{H}_k\hat{P} + \hat{Q}$ is the optimal choice for $\hat{H}_k+1$, as it is the matrix closest to $\hat{H}_k$ which satisfies our secant condition
+We have now proved not only that $\hat{Q}$ is the optimal choice for the matrix that maps $\hat{y}$ to itself, but that the construction $\hat{P}\hat{H}_k\hat{P} + \hat{Q}$ is the optimal choice for $\hat{H}_k+1$, as it is the matrix closest to $\hat{H}_k$ which satisfies our secant condition
 
 ## BFGS In Practice
