@@ -372,21 +372,9 @@ $$
 
 </div>
 
-We get one additional property for free: since $\hat{H}$ must be symmetric, that means the orthogonal complement to $\hat{y}$ must be closed. For any $w$ orthogonal to $\hat{y}$
+So we're looking for a matrix $\hat{H}$ which maps $\hat{y}$ to itself, still mindful of staying as close to $\hat{H_k}$ as possible (and always symmetric). Our method will be thus: modify $\hat{H}_k$ in order to cancel its current action on $\hat{y}$, then construct and add in a matrix that maps $\hat{y}$ as we desire [^13].
 
-<div class="math">
-
-$$
-\hat{y}^{\top}\hat{H}w = w^{\top}\hat{H}\hat{y} = w^{\top}\hat{y} = 0
-$$
-
-</div>
-
-So if $w$ is orthogonal to $\hat{y}$, then $\hat{H}w$ must also be orthogonal to $\hat{y}$. Our desired $\hat{H}$ must send $\hat{y}$ to $\hat{y}$, and must not send any vector in the orthogonal complement in the $\hat{y}$-direction. Set this fact aside for now; we'll use it later in step 3 to prove that what we do then is in fact optimal.
-
-So we're looking for a matrix $\hat{H}$ which maps $\hat{y}$ to itself, still mindful of staying as close to $\hat{H_k}$ as possible (and always symmetric). Our method will be thus: modify $\hat{H}_k$'s in order to cancel its current action on $\hat{y}$, then construct and add in a matrix that maps $\hat{y}$ as we desire [^13].
-
-[^13]: if this also seems plucked from the sky, bear with me. It will all work out
+[^13]: If this also seems plucked from the sky, bear with me. It will all work out
 
 
 
