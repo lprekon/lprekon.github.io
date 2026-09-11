@@ -1,21 +1,25 @@
 +++
 date = '2026-06-27T15:00:00-05:00'
 draft = true
-title = 'LM-BFGS Explained'
-summary = "An intuitive walkthrough and proof of the LM-BFGS optimization algorithm"  
+title = 'BFGS Explained'
+summary = "An intuitive walkthrough and proof of the BFGS optimization algorithm"  
 +++
-
-
-I assume you're passingly familiar with machine learning and comfortable enough with linear algebra to multiply matrices
 
 Machine learning is, at its core, the practice of iteratively minimizing a loss function. For some mathematical model and its set of weights, and some loss function measuring how wrong the model currently is, repeatedly adjust the weights until the loss function is as small as you can get it. For most machine learning endeavors, the algorithm by which one repeatedly tweaks their weights is some form of [gradient descent](https://en.wikipedia.org/wiki/Gradient_descent): pick a loss function that's differentiable, calculate its derivative with respect to each weight to determine how to tweak them, and repeat.
 
 Gradient descent is a first order minimization algorithm - it relies on the first derivative of the function we're trying to minimize.
 
-LM-BFGS (and its predecessor BFGS) are second order algorithms, which incorporate curvature information - the second derivative of the loss function - to accelerate the search.
+There also exist second order algorithms, which incorporate curvature information - the second derivative of the loss function - to accelerate the search. The most straightforward second-order algorithm is Newtonian Optimization. There are also a whole host of quasi-Newtonian algorithms which approximate Newtonian optimization, seeking similar performance at a fraction of the computational cost.
+
+Today we're going to talk about a particular quasi-Newtonian algorithm called BFGS, named for the four mathemeticians who invented it.
+
+While there are [plenty](https://en.wikipedia.org/wiki/Broyden–Fletcher–Goldfarb–Shanno_algorithm#Algorithm) of [places](https://machinelearningmastery.com/bfgs-optimization-in-python/) on [the internet](https://www.cs.purdue.edu/homes/jhonorio/16spring-cs52000-quasinewton.pdf) that will tell you *about* the BFGS algorithm, none (in my opinion) do an adequate job explaining where it comes from. The algorithm involves some fairly arcane-looking linear algebra, and it is not immediately clear how that math achieves its stated purpose. Why and how does this algorithm actually *work*?
+
+This article will explain the intuition behind second-order optimization, present the BFGS algorithm, and then provide a derivation of and proof for the algorithm, showing that it is in fact optimal (given certain assumptions). A later article will continue the discussion to L-BFGS, a successor algorithm built on BFGS and which is more common in practice today.
+
+Note: this article assumes familiarity with linear algebra concepts like matrix multiplication, transposition, and symmetry.
 
 ## Primer: Newtonian optmization
-
 
 Newtonian optimization rests on two ideas: 
 1) At any minimum of a function, the function's derivative at that point must be zero. This should be obvious - if the derivative was not 0, then there exists a direction in which we can move and find a smaller function value.
@@ -37,13 +41,13 @@ Newtonian optimization uses the curvature of the function to estimate where the 
 
 Here's visual representation of how Newtonian optimization finds the minimum of a function compared to the more common gradient descent. The function here is the [Rosenbrock function](https://en.wikipedia.org/wiki/Rosenbrock_function)
 
-{{< media src="media/videos/lmbfgs_explainer/1080p60/GradientVsNewtonian.mp4" caption="$f(x) = (1-x)^2 + 50(y-x^2)^2$" >}}
+{{< media src="media/videos/lmbfgs_explainer/1080p60/GradientVsNewtonian.mp4" caption="$f(x) = (1-x_0)^2 + 50(x_1-x_0^2)^2$" >}}
 
 Using gradient descent to find the minimum requires walking down the canyon walls - initially moving *away* from the minimum - before tracing a path along the valley floor. In this demonstration, Gradient descent takes 12,000 steps to reach the minimum, while Newtonian optimization gets there in only 4 steps.
 
 Despite this incredible feat, pure Newtonian optimization has a couple drawbacks, which is why it's almost never used in practice. The first is its sensitivity to the curvature of the function to be to minimized. If the function is not well approximated by a quadratic curve, then Newtonian optimization can give suboptimal results.
 
-{{< media src="media/videos/lmbfgs_explainer/1080p60/SinusoidalValley.mp4" caption="$f(x) = \sin(x) + \sin(y)$" >}}
+{{< media src="media/videos/lmbfgs_explainer/1080p60/SinusoidalValley.mp4" caption="$f(x) = \sin(x_0) + \sin(x_1)$" >}}
 
 Here, gradient descent is able to find the minimum but Newtonian optimization quickly gets stuck in a saddle point. This function is incredibly poorly approximated by a quadratic, so this is a worst-case scenario. 
 
@@ -147,8 +151,7 @@ $$
 
 After which we return to step 1 and repeat, now with a better understanding of the curvature of the function thanks to our updated $H$. 
 
-If you think that update equation in step 5 fell from the sky and was bestowed upon us by aliens, you are not alone. While there are [plenty](https://en.wikipedia.org/wiki/Broyden–Fletcher–Goldfarb–Shanno_algorithm#Algorithm) of [places](https://machinelearningmastery.com/bfgs-optimization-in-python/) on [the internet](https://www.cs.purdue.edu/homes/jhonorio/16spring-cs52000-quasinewton.pdf) that will tell you *about* the BFGS algorithm, none (in my opinion) do an adequate job explaining where it comes from. Why does this arcane formula actually work?
-
+If you think that update equation in step 5 fell from the sky and was bestowed upon us by aliens, you are not alone. 
 Let's explain that line search in step two, and then we'll get to the point of this article - deriving the update algorithm and proving that it is optimal
 
 ## A Line Search to Satisfy Wolfe Conditions
@@ -965,3 +968,35 @@ So the version of $[\hat{H}_{k+1}]_J$ which is minimally distant from $[\hat{H}_
 We have now proved that $\hat{Q}$ is the optimal choice for the matrix that maps $\hat{y}$ to itself, and that the construction $\hat{P}\hat{H}_k\hat{P} + \hat{Q}$ is the optimal choice for $\hat{H}_{k+1}$, as it is the matrix closest to $\hat{H}_k$ – and thus the $H_{k+1}$ closest to $H_k$ – which satisfies our secant condition
 
 ## BFGS In Practice
+
+Let's take a look at how well BFGS handles the optimization scenarios we considered at the top of this article. Here's how BFGS handles our sin-based worst-case-for-Newtonian scenario
+
+{{< media src="media/videos/lmbfgs_explainer/1080p60/BfgsSinusoidal.mp4" caption="BFGS $f(x) = sin(x_0) + sin(x_1)$" >}}
+
+BFGS actually works much better on this problem than pure Newtonian optimization did! BFGS' approximations keep it from getting immediately stuck in the saddle point and give it a chance to find the true minimum. 
+
+How does BFGS do at our Rosenbrock canyon?
+
+{{< media src="media/videos/lmbfgs_explainer/1080p60/BfgsRosenbrok.mp4" caption="BFGS $f(x) = (1-x_0)^2 + 50(x_1-x_0^2)^2$" >}}
+
+It certainly appears to take more steps than Newtonian optimization. One might wonder "if BFGS is learning the inverted Hessian, and updating that approximation with more and more information at each step, why does it crawl down the canyon, taking little steps each time? Why doesn't it eventually learn and take bigger steps?"
+
+The answer is that this function has no single, true, Hessian, and thus no single inverse Hessian. As we walk along the canyon floor the approximate inverse Hessian is continuously being updated, but the true Hessian is also changing as we go, preventing us from ever learning "it" (because there is no single "it"), capping our step size.
+
+It's worth noting though - before one writes this exercise off and dismisses BFGS because it doesn't go any faster than gradient descent seemed to - that these animations are not perfectly to time-scale. When we watched gradient descent roll down the Rosenbrock canyon or roll into the sinusoid valley, we saw it move at constant speed; in reality, the first several steps are relatively large, and the vast majority of steps - the vast majority of iterations of that algorithm - occur right at the end. Take a look at this graph of training loss over amount of data trained on from [the LLaMa paper](https://arxiv.org/abs/2302.13971)
+
+{{< media src="images/llama-training-curves.png" caption="arXiv:2302.13971, Figure 1">}}
+
+Loss drops off quickly at the beginning, and then levels out as time goes on. Gradient descent is excellent at making quick, early steps toward the minimum, but are less effective the closer one gets. More advanced forms of gradient descent, like GD-with-momentum or Adam, address this issue and help gradient descent get closer to the minimum, but eventually they run into the same problem. The closer you get to a function minimum, the less the overall noise and general topology of that function matter. Zoom in more and more around a function minimum - for just about any function - and the more it starts to resemble a gently sloping plain.
+
+In fact, as one gets closer to the minimum and the function begins to resemble a wide, flat bowl, the function starts to be  very well approximated by a quadratic curve, which is exactly when BFGS works best! It is in these final approaches to the minimum that BFGS achieves [superlinear](https://en.wikipedia.org/wiki/Rate_of_convergence#Q-convergence) convergence: the ratio of values of $f$ on successive steps approaches zero as our steps approach infinity
+
+<div class="math">
+
+$$
+\lim _{k\rightarrow \infty} \frac{f(x_{k+1})}{f(x_k)} = 0
+$$
+
+</div>
+
+Second order algorithms like BFGS are king when it comes to optimizations close to the function minimum. Hm... maybe one could start training with a cheap first order algorithm, and then switch to a more computationally expensive second order algorithm for fine tuning? But, that will be a discussion for another day!
