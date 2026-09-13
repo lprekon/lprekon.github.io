@@ -174,9 +174,9 @@ $$
 
 Where $c_1$ and $c_2$ are arbitrary positive constants, usually chosen as $10^{-4}$ and $0.9$ respectively. These two conditions place an upper and lower bound on $\alpha _k$.
 
-The first condition stops us from picking an $\alpha _k$ so large that we overshoot. The function on the right side of the inequality is a line that slopes down from $f(x_k)$ in the direction $p_k$, with slope proportional to our gradient $\nabla f$ in that direction. As our theoretical step size (and thus candidate choice of $\alpha _k$) increases, that line becomes steeper. The further we step, the greater requirement we have for the decrease of $f$. This inequality stops us from stepping so far that we overshoot the minimum and pop back up.
+The first condition stops us from picking an $\alpha _k$ so large that we overshoot. The function on the right side of the inequality is a line that slopes down from $f(x_k)$ in the direction $p_k$, with slope proportional to our gradient $\nabla f$ in that direction. As our theoretical step size (and thus candidate choice of $\alpha _k$) increases, that line becomes steeper. The further we step, the greater requirement we have for the decrease of $f$. This inequality doesn't fully stop us from overshooting the minimum, but it does put a cap on how far we can go. It can be a little hard to picture, so here's how it works in practice
 
-<PUT ANIMATION HERE SHOWING HOW UPPER-BOUND LINE HINGES AS ALPHA CHANGES>
+{{< media src="media/videos/lmbfgs_explainer/1080p60/LineSearch.mp4" >}}
 
 The second condition keeps us from picking an $\alpha _k$ so small that we go nowhere. In this inequality, we compare the gradient in our step direction at the proposed new $x$ with some portion of that same value at our current $x$. We insist that the slope of $f$ at our new spot moves away from $- \infty$[^5], and that it has moved at least an amount proportional to our old slope; lower values of $c_2$ require us to achieve greater movement away from $- \infty$.
 
