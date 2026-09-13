@@ -631,7 +631,7 @@ We start by comparing how the choice of $\hat{Q}$ over $I$ affects the norm of t
 <div class="math">
 
 $$
-\lVert JMJ \rVert _F = \lVert M \rVert _F
+\lVert J^{-1}MJ \rVert _F = \lVert M \rVert _F
 $$
 
 </div>
@@ -749,8 +749,8 @@ $$
 \def\arraystretch{1.5}
 \begin{array}{llr}
 [\hat{Q}]_J &= \frac{1}{\lVert \hat{y} \rVert ^2} 
-\begin{bmatrix} \lVert \hat{y} \rVert & 0 & \cdots & 0 \end{bmatrix}
-\begin{bmatrix} \lVert \hat{y} \rVert \\ 0 \\ \vdots \\ 0 \end{bmatrix} \\
+\begin{bmatrix} \lVert \hat{y} \rVert \\ 0 \\ \vdots \\ 0 \end{bmatrix} 
+\begin{bmatrix} \lVert \hat{y} \rVert & 0 & \cdots & 0 \end{bmatrix} \\
 &= 
 \begin{bmatrix}
 1 & 0 & \cdots & 0 \\
