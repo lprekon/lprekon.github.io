@@ -987,14 +987,26 @@ It's worth noting though - before one writes this exercise off and dismisses BFG
 
 Loss drops off quickly at the beginning, and then levels out as time goes on. Gradient descent is excellent at making quick, early steps toward the minimum, but is less effective the closer one gets. More advanced forms of gradient descent, like GD-with-momentum or Adam, address this issue and help gradient descent get closer to the minimum, but eventually they run into the same problem. 
 
-The closer you get to a function minimum, the less the overall noise and general topology of that function matter. Zoom in more and more around a function minimum (for just about any function) and the more it starts to resemble a gently sloping plain - a wide, flat bowl, very easily approximated by a quadratic curve. Which is exactly when BFGS works best! It is in these final approaches to the minimum that BFGS achieves [superlinear](https://en.wikipedia.org/wiki/Rate_of_convergence#Q-convergence) convergence: the ratio of values of $f$ on successive steps approaches zero as our steps approach infinity
+The closer you get to a function minimum, the less the overall noise and general topology of that function matter. Zoom in more and more around a function minimum (for just about any function) and the more it starts to resemble a gently sloping plain - a wide, flat bowl, very easily approximated by a quadratic curve. Which is exactly when BFGS works best! It is in these final approaches to the minimum that BFGS achieves [superlinear](https://en.wikipedia.org/wiki/Rate_of_convergence#Q-convergence) convergence: the ratio of the distance to the minimum on successive steps approaches zero as our steps approach infinity
 
 <div class="math">
 
 $$
-\lim _{k\rightarrow \infty} \frac{f(x_{k+1})}{f(x_k)} = 0
+\lim _{k\rightarrow \infty} \frac{x_{k+1} - x^*}{x_k - x^*} = 0
 $$
 
 </div>
+
+Where $x^*$ is the true function minimum. Contrast this with simple gradient descent, which converges linearly
+
+<div class="math">
+
+$$
+\lim _{k\rightarrow \infty} \frac{x_{k+1} - x^*}{x_k - x^*} = c
+$$
+
+</div>
+
+The ratio of the distance to the minimum on successive steps converges to some constant $c$, but never all the way to zero; each step gets us only a fixed portion of the remaining distance, no matter how many steps we take.
 
 Second order algorithms like BFGS are king when it comes to optimizations close to the function minimum. Hm... maybe one could start training with a cheap first order algorithm, and then switch to a more computationally expensive second order algorithm for fine tuning? But that - and a full explanation of BFGS's successor, L-BFGS - will be discussions for another day!
