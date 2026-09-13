@@ -43,13 +43,13 @@ Here's visual representation of how Newtonian optimization finds the minimum of 
 
 {{< media src="media/videos/bfgs_explainer/1080p60/GradientVsNewtonian.mp4" caption="$f(x) = (1-x_0)^2 + 50(x_1-x_0^2)^2$" >}}
 
-Using gradient descent to find the minimum requires walking down the canyon walls - initially moving *away* from the minimum - before tracing a path along the valley floor. In this demonstration, Gradient descent takes 12,000 steps to reach the minimum, while Newtonian optimization gets there in only 4 steps.
+Using gradient descent to find the minimum requires walking down the canyon walls - initially moving *away* from the minimum - before tracing a path along the valley floor. In this demonstration, after 12,000 steps of Gradient descent twe're still only approaching the minimum, while Newtonian optimization gets there exactly in 5 steps.
 
 Despite this incredible feat, pure Newtonian optimization has a couple drawbacks, which is why it's almost never used in practice. The first is its sensitivity to the curvature of the function to be minimized. If the function is not well approximated by a quadratic curve, then Newtonian optimization can give suboptimal results.
 
 {{< media src="media/videos/bfgs_explainer/1080p60/SinusoidalValley.mp4" caption="$f(x) = \sin(x_0) + \sin(x_1)$" >}}
 
-Here, gradient descent is able to find the minimum but Newtonian optimization quickly gets stuck in a saddle point. This function is incredibly poorly approximated by a quadratic, so this is a worst-case scenario. 
+Here, gradient descent is able to find the minimum but Newtonian optimization quickly gets stuck in a saddle point. While Newtonian optimization can be *used* to find a function minimum, all the algorithm actually seeks is a nearby point where the gradient is zero. Here, the algorithm brings us to one such point, just not the one we would have preferred.
 
 Newtonian optimization has one additional drawback, which will be present no matter how close the true function is to a quadratic, and which motivates the creation of BFGS. To see it, lets walk through the math.
 
@@ -121,7 +121,7 @@ $$
 
 And this brings us to the major problem with Newtonian optimization: that pesky $B^{-1}$. Gradient descent determines each step with only the Jacobian $∇f$, which scales linearly with the number of inputs. But the Hessian $B$ grows quadratically with the number of inputs[^3]. Finding the Hessian for a function of one million variables (not very large by modern machine learning standards) would require calculating five-hundred-trillion unique partial second derivatives every step. The Hessian *then* needs to be inverted on each step, which is $O(n^{2.37})$ in the best case[^4].
 
-[^3]: The Hessian [must be symmetric](https://en.wikipedia.org/wiki/Symmetry_of_second_derivatives), meaning the Hessian for a function of $n$ inputs has $\frac{(n-1)^2}{2} + n$ unique elements, instead of $n^2$
+[^3]: The Hessian [must be symmetric](https://en.wikipedia.org/wiki/Symmetry_of_second_derivatives), meaning the Hessian for a function of $n$ inputs has $\frac{n(n-1)}{2} $ unique elements, instead of $n^2$
 
 [^4]: and that's $O(n^{2.37})$ with respect to the number of elements in the matrix, not the number of inputs to the original function. A five-hundred-trillion element matrix takes between $5.32e27$ and $1.25e35$ operations to invert. On a CPU running three billion operations per second, the sun would explode before you were even 1% of the way there
 
@@ -477,7 +477,7 @@ $$
 
 </div>
 
-The term on the right is a matrix close to $\hat{H}_k$, modified to map $\hat{y}$ to $0$, and the term on the left is a new matrix which maps $\hat{y}$ to itself, as required by our secant condition.
+The term on the left is a matrix close to $\hat{H}_k$, modified to map $\hat{y}$ to $0$, and the term on the right is a new matrix which maps $\hat{y}$ to itself, as required by our secant condition.
 
 <div class="math">
 
@@ -894,7 +894,7 @@ $$
     1-a & -r^{\top} \\
     -r & 0
     \end{bmatrix} \rVert _F\\
-&= (1-a)^2 + \lVert r \rVert ^2 \\
+&= (1-a)^2 + 2\lVert r \rVert ^2 \\
 \lVert [\hat{P}\hat{H}_k\hat{P} + I - \hat{H}_k]_J \rVert _F &= \lVert
     \begin{bmatrix}
     1 & 0 \\
@@ -910,7 +910,7 @@ $$
     1-a & -r^{\top} \\
     -r & I_{n-1}
     \end{bmatrix} \rVert _F\\
-&= (1-a)^2 + \lVert r \rVert ^2 + (n-1)
+&= (1-a)^2 + 2\lVert r \rVert ^2 + (n-1)
 \end{array}
 $$
 
