@@ -256,9 +256,7 @@ We want to stay as close to $H_k$ as possible, so our goal is to find some $H$ w
 
 [^10]: And is symmetric. If $H$ isn't symmetric then it's not a proper approximation of the inverse Hessian
 
-We are now ready to begin our derivation of the update algorithm[^11]
-
-[^11]: Had we picked a measure of closeness other than a weighted Frobenius norm, we wouldn't be working with BFGS but with [DFP](https://en.wikipedia.org/wiki/Davidon–Fletcher–Powell_formula), [SR1](https://en.wikipedia.org/wiki/Symmetric_rank-one), etc. There are a variety of quasi-Newton methods out there, and this choice of "measure of closeness" is one of the primary differentiators
+We are now ready to begin our derivation of the update algorithm
 
 
 
