@@ -41,13 +41,13 @@ Newtonian optimization uses the curvature of the function to estimate where the 
 
 Here's visual representation of how Newtonian optimization finds the minimum of a function compared to the more common gradient descent. The function here is the [Rosenbrock function](https://en.wikipedia.org/wiki/Rosenbrock_function)
 
-{{< media src="media/videos/lmbfgs_explainer/1080p60/GradientVsNewtonian.mp4" caption="$f(x) = (1-x_0)^2 + 50(x_1-x_0^2)^2$" >}}
+{{< media src="media/videos/bfgs_explainer/1080p60/GradientVsNewtonian.mp4" caption="$f(x) = (1-x_0)^2 + 50(x_1-x_0^2)^2$" >}}
 
 Using gradient descent to find the minimum requires walking down the canyon walls - initially moving *away* from the minimum - before tracing a path along the valley floor. In this demonstration, Gradient descent takes 12,000 steps to reach the minimum, while Newtonian optimization gets there in only 4 steps.
 
 Despite this incredible feat, pure Newtonian optimization has a couple drawbacks, which is why it's almost never used in practice. The first is its sensitivity to the curvature of the function to be to minimized. If the function is not well approximated by a quadratic curve, then Newtonian optimization can give suboptimal results.
 
-{{< media src="media/videos/lmbfgs_explainer/1080p60/SinusoidalValley.mp4" caption="$f(x) = \sin(x_0) + \sin(x_1)$" >}}
+{{< media src="media/videos/bfgs_explainer/1080p60/SinusoidalValley.mp4" caption="$f(x) = \sin(x_0) + \sin(x_1)$" >}}
 
 Here, gradient descent is able to find the minimum but Newtonian optimization quickly gets stuck in a saddle point. This function is incredibly poorly approximated by a quadratic, so this is a worst-case scenario. 
 
@@ -176,7 +176,7 @@ Where $c_1$ and $c_2$ are arbitrary positive constants, usually chosen as $10^{-
 
 The first condition stops us from picking an $\alpha _k$ so large that we overshoot. The function on the right side of the inequality is a line that slopes down from $f(x_k)$ in the direction $p_k$, with slope proportional to our gradient $\nabla f$ in that direction. As our theoretical step size (and thus candidate choice of $\alpha _k$) increases, that line becomes steeper. The further we step, the greater requirement we have for the decrease of $f$. This inequality doesn't fully stop us from overshooting the minimum, but it does put a cap on how far we can go. It can be a little hard to picture, so here's how it works in practice
 
-{{< media src="media/videos/lmbfgs_explainer/1080p60/LineSearch.mp4" >}}
+{{< media src="media/videos/bfgs_explainer/1080p60/LineSearch.mp4" >}}
 
 The second condition keeps us from picking an $\alpha _k$ so small that we go nowhere. In this inequality, we compare the gradient in our step direction at the proposed new $x$ with some portion of that same value at our current $x$. We insist that the slope of $f$ at our new spot moves away from $- \infty$[^5], and that it has moved at least an amount proportional to our old slope; lower values of $c_2$ require us to achieve greater movement away from $- \infty$.
 
@@ -971,13 +971,13 @@ We have now proved that $\hat{Q}$ is the optimal choice for the matrix that maps
 
 Let's take a look at how well BFGS handles the optimization scenarios we considered at the top of this article. Here's how BFGS handles our sin-based worst-case-for-Newtonian scenario
 
-{{< media src="media/videos/lmbfgs_explainer/1080p60/BfgsSinusoidal.mp4" caption="BFGS $f(x) = sin(x_0) + sin(x_1)$" >}}
+{{< media src="media/videos/bfgs_explainer/1080p60/BfgsSinusoidal.mp4" caption="BFGS $f(x) = sin(x_0) + sin(x_1)$" >}}
 
 BFGS actually works much better on this problem than pure Newtonian optimization did! BFGS' approximations keep it from getting immediately stuck in the saddle point and give it a chance to find the true minimum. 
 
 How does BFGS do at our Rosenbrock canyon?
 
-{{< media src="media/videos/lmbfgs_explainer/1080p60/BfgsRosenbrok.mp4" caption="BFGS $f(x) = (1-x_0)^2 + 50(x_1-x_0^2)^2$" >}}
+{{< media src="media/videos/bfgs_explainer/1080p60/BfgsRosenbrok.mp4" caption="BFGS $f(x) = (1-x_0)^2 + 50(x_1-x_0^2)^2$" >}}
 
 It certainly appears to take more steps than Newtonian optimization. One might wonder "if BFGS is learning the inverted Hessian, and updating that approximation with more and more information at each step, why does it crawl down the canyon, taking little steps each time? Why doesn't it eventually learn and take bigger steps?"
 
