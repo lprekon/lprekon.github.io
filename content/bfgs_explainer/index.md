@@ -174,7 +174,7 @@ $$
 
 Where $c_1$ and $c_2$ are arbitrary positive constants, usually chosen as $10^{-4}$ and $0.9$ respectively. These two conditions place an upper and lower bound on $\alpha _k$.
 
-The first condition stops us from picking an $\alpha _k$ so large that we overshoot. The function on the right side of the inequality is a line that slopes down from $f(x_k)$ in the direction $p_k$, with slope proportional to our gradient $\nabla f$ in that direction. As our theoretical step size (and thus candidate choice of $\alpha _k$) increases, that line becomes steeper. The further we step, the greater requirement we have for the decrease of $f$. This inequality doesn't fully stop us from overshooting the minimum, but it does put a cap on how far we can go. It can be a little hard to picture, so here's how it works in practice
+The first condition stops us from picking an overly large $\alpha _k$ and seriously overshooting the minimum. Think of the function on the right side of the inequality as a horizontal line that starts at at $f(x_k)$ when $\alpha = 0$. As our theoretical step size (and thus candidate choice of $\alpha _k$) increases, that line drops. The further we step, the greater requirement we have for the decrease of $f$. Eventually, as we continue to increase $\alpha$, $f(x_k + \alpha p_k)$ will go past the function minimum and will pop up above the ever-decreasing horizontal line, breaking the inequality and giving us our absolute maximum $\alpha_k$. This inequality doesn't completely stop us from overshooting the minimum, but it does put a cap on how far we can go. It can be a little hard to picture, so here's how it works in practice
 
 {{< media src="media/videos/bfgs_explainer/1080p60/LineSearch.mp4" >}}
 
@@ -417,7 +417,7 @@ if we solve for $z$, we get
 <div class="math">
 
 $$
-\def\arraystrech{1.5}
+\def\arraystretch{1.5}
 \begin{array}{ll}
 z &= x - \hat{Q}x \\
 &= (I - \hat{Q})x \\
