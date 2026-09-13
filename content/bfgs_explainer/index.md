@@ -45,15 +45,15 @@ Here's visual representation of how Newtonian optimization finds the minimum of 
 
 Using gradient descent to find the minimum requires walking down the canyon walls - initially moving *away* from the minimum - before tracing a path along the valley floor. In this demonstration, Gradient descent takes 12,000 steps to reach the minimum, while Newtonian optimization gets there in only 4 steps.
 
-Despite this incredible feat, pure Newtonian optimization has a couple drawbacks, which is why it's almost never used in practice. The first is its sensitivity to the curvature of the function to be to minimized. If the function is not well approximated by a quadratic curve, then Newtonian optimization can give suboptimal results.
+Despite this incredible feat, pure Newtonian optimization has a couple drawbacks, which is why it's almost never used in practice. The first is its sensitivity to the curvature of the function to be minimized. If the function is not well approximated by a quadratic curve, then Newtonian optimization can give suboptimal results.
 
 {{< media src="media/videos/bfgs_explainer/1080p60/SinusoidalValley.mp4" caption="$f(x) = \sin(x_0) + \sin(x_1)$" >}}
 
 Here, gradient descent is able to find the minimum but Newtonian optimization quickly gets stuck in a saddle point. This function is incredibly poorly approximated by a quadratic, so this is a worst-case scenario. 
 
-Newtonian optimization has one additional drawback, which will be present no matter how close the true function is to a quadratic, and which and motivates the creation of BFGS. To see it, lets walk through the math.
+Newtonian optimization has one additional drawback, which will be present no matter how close the true function is to a quadratic, and which motivates the creation of BFGS. To see it, lets walk through the math.
 
-In order to derive the algorithm for Newtonian optimization, we start by approximating the true function with a a second-order [Taylor Expansion](https://en.wikipedia.org/wiki/Taylor_series)[^2]:
+In order to derive the algorithm for Newtonian optimization, we start by approximating the true function with a second-order [Taylor Expansion](https://en.wikipedia.org/wiki/Taylor_series)[^2]:
 
 <div class="math">
 
@@ -174,7 +174,7 @@ $$
 
 Where $c_1$ and $c_2$ are arbitrary positive constants, usually chosen as $10^{-4}$ and $0.9$ respectively. These two conditions place an upper and lower bound on $\alpha _k$.
 
-The first condition stops us from picking an overly large $\alpha _k$ and seriously overshooting the minimum. Think of the function on the right side of the inequality as a horizontal line that starts at at $f(x_k)$ when $\alpha = 0$. As our theoretical step size (and thus candidate choice of $\alpha _k$) increases, that line drops. The further we step, the greater requirement we have for the decrease of $f$. Eventually, as we continue to increase $\alpha$, $f(x_k + \alpha p_k)$ will go past the function minimum and will pop up above the ever-decreasing horizontal line, breaking the inequality and giving us our absolute maximum $\alpha_k$. This inequality doesn't completely stop us from overshooting the minimum, but it does put a cap on how far we can go. It can be a little hard to picture, so here's how it works in practice
+The first condition stops us from picking an overly large $\alpha _k$ and seriously overshooting the minimum. Think of the function on the right side of the inequality as a horizontal line that starts at $f(x_k)$ when $\alpha = 0$. As our theoretical step size (and thus candidate choice of $\alpha _k$) increases, that line drops. The further we step, the greater requirement we have for the decrease of $f$. Eventually, as we continue to increase $\alpha$, $f(x_k + \alpha p_k)$ will go past the function minimum and will pop up above the ever-decreasing horizontal line, breaking the inequality and giving us our absolute maximum $\alpha_k$. This inequality doesn't completely stop us from overshooting the minimum, but it does put a cap on how far we can go. It can be a little hard to picture, so here's how it works in practice
 
 {{< media src="media/videos/bfgs_explainer/1080p60/LineSearch.mp4" >}}
 
@@ -182,7 +182,7 @@ The second condition keeps us from picking an $\alpha _k$ so small that we go no
 
 [^5]: It's tempting to say "toward $0$" here, but that's technically inaccurate as it implies this condition would *stop* pushing us once the slope hits zero and wouldn't push the slope positive. The second condition is absolutely still satisfied if we overshoot the minimum and the slope becomes positive, and that's why we need the first condition.
 
-Now, as to how one actually *finds* an appropriate value for $\alpha _k$, there are [a number of methods](https://en.wikipedia.org/wiki/Line_search). In fact, an astute reader may have noticed that this is in fact an optimization problem itself. If you really wanted to, you could technically recurse and conduct a BFGS-based search for the minimum of the one dimensional function $g(\alpha) = f(x_k + \alpha p_k)$! This would be quite silly though, as you'd then need to do a line search in your new BFGS algorithm, recursing infinitely. 
+Now, as to how one actually *finds* an appropriate value for $\alpha _k$, there are [a number of methods](https://en.wikipedia.org/wiki/Line_search). In fact, an astute reader may have noticed that this is actually an optimization problem itself. If you really wanted to, you could technically recurse and conduct a BFGS-based search for the minimum of the one dimensional function $g(\alpha) = f(x_k + \alpha p_k)$! This would be quite silly though, as you'd then need to do a line search in your new BFGS algorithm, recursing infinitely. 
 
 In practice, the line search to satisfy wolfe conditions is usually conducted using a [backtracking line search](https://en.wikipedia.org/wiki/Backtracking_line_search). Essentially, we find an upper bound for $\alpha$ which satisfies the first condition, and a lower bound which satisfies the second, and then conduct something like a binary search within that range until we find an $\alpha$ that's "good enough". We don't want to waste time finding the *optimal* $\alpha$. Once we find an $\alpha$ which satisfies our conditions, we're better off spending our compute resources finding the next direction of search in our overall algorithm than refining $\alpha$. Good enough is good enough.
 
@@ -462,7 +462,7 @@ $$
 
 ### Part 3: Map $\hat{y}$ to $\hat{y}$
 
-For the second part of our construction we need a matrix that that maps $\hat{y}$ to itself. The identity matrix $I$ is an obvious choice, but we also have $\hat{Q}$, the matrix we just defined above which projects onto $Span\{\hat{y}\}$. It turns out that $\hat{Q}$ is the better choice. We will prove this later.
+For the second part of our construction we need a matrix that maps $\hat{y}$ to itself. The identity matrix $I$ is an obvious choice, but we also have $\hat{Q}$, the matrix we just defined above which projects onto $Span\{\hat{y}\}$. It turns out that $\hat{Q}$ is the better choice. We will prove this later.
 
 
 ### Part 4: Undo The Change of Variable
