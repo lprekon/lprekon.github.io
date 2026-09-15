@@ -624,7 +624,9 @@ We have shown the full BFGS algorithm. We have shown how one may derive the BFGS
 
 [^14]: Recall that here, "best" means the smallest weighted Frobenius norm of $H_{k+1} - H_k$, which is equivalent to the smallest un-weighted Frobenius norm of $\hat{H}_{k+1} - \hat{H_k}$
 
-We start by comparing how the choice of $\hat{Q}$ over $I$ affects the norm of the difference between $H_{k+1}$ and $H_k$. The difference between $\hat{Q}$ and $I$'s respective effects on the norm is easiest to see if we conduct a [change-of-basis](https://en.wikipedia.org/wiki/Change_of_basis) to a new vector space. Let $J$ be our new vector space with orthonormal basis $\{j_1, j_2, \ldots, j_n\}$. We define $j_1 = \frac{\hat{y}}{\lVert\hat{y}\rVert}$, and $\{j_2, \cdots , j_n\}$ as orthonormal vectors spanning the remainder of $J$. Because $J$ is an orthogonal matrix - composed of orthogonal vectors each with a norm of 1 - the change of basis does not affect the Frobenius norm 
+We start by comparing how the choice of $\hat{Q}$ over $I$ affects the norm of the difference between $H_{k+1}$ and $H_k$. The difference between $\hat{Q}$ and $I$'s respective effects on the norm is easiest to see if we conduct a [change-of-basis](https://en.wikipedia.org/wiki/Change_of_basis)[^15] to a new vector space. Let $J$ be our new vector space with orthonormal basis $\{j_1, j_2, \ldots, j_n\}$. We define $j_1 = \frac{\hat{y}}{\lVert\hat{y}\rVert}$, and $\{j_2, \cdots , j_n\}$ as orthonormal vectors spanning the remainder of $J$. Because $J$ is an orthogonal matrix - composed of orthogonal vectors each with a norm of 1 - the change of basis does not affect the Frobenius norm 
+
+[^15]: In this article I'm using the notation from *Linear Algebra And It's Applications, 4th ed, by David C. Lay*, which is the inverse of Wikipedia's notation. In discussing changing the basis of a vector $x$ from an old basis to a new basis, Wikipedia uses the term "change-of-basis" matrix to refer to a matrix $A$ s.t $x_old = Ax_new$. I'm using the notation from . Under that notation regime, the matrix described by Wikipedia would be called the change-of-coordinate matrix, and the change-of-basis matrix would be $B$ s.t $Bx_old = x_new$. Note that $B = A^{-1}$
 
 <div class="math">
 
@@ -648,9 +650,9 @@ $$
 
 </div>
 
-Where $a$ is a scalar, $r$ is a vector of length $n-1$, and $C$ is an $(n-1)\times(n-1)$ symmetrical matrix[^15]. Next lets look at $\hat{Q}$ in our new basis. For any matrix $M$ which maps vector space $A$ back to itself, the formula to change its basis to vector space $B$ is as follows
+Where $a$ is a scalar, $r$ is a vector of length $n-1$, and $C$ is an $(n-1)\times(n-1)$ symmetrical matrix[^16]. Next lets look at $\hat{Q}$ in our new basis. For any matrix $M$ which maps between vectors in some vector space $A$, the formula to change its basis to vector space $B$ is as follows
 
-[^15]: This representation actually has nothing to do with the change-of-basis. We can always write out a symmetrical matrix this way. We just haven't needed to before now
+[^16]: This representation actually has nothing to do with the change-of-basis. We can always write out a symmetrical matrix this way. We just haven't needed to before now
 
 <div class="math">
 
@@ -660,7 +662,10 @@ $$
 \text{if} \\
 M: x\mapsto y,\ \ \ \ x,y \in A \\
 \text{then} \\
-[M]_B = P_{B\leftarrow A}^{-1}MP_{B\leftarrow A} \\
+\begin{array}{cc}
+[M]_B &= \underset{B\leftarrow A}{P}M\underset{A\leftarrow B}{P} \\
+&= \underset{A \leftarrow B}{P}^{-1}M\underset{A \leftarrow B}{P}\\
+\end{array} \\
 \text{such that} \\
 [M]_B:[x]_B\mapsto[y]_B,\ \ \ \ [x]_B,[y]_B \in B
 \end{array}
@@ -668,16 +673,32 @@ $$
 
 </div>
 
-In other words we can construct a transformation in the new basis which is equivalent to $M$ in the old basis by sandwiching $M$ between the change-of-basis matrix $P_{B\leftarrow A}$ and its inverse. We will do this with $\hat{Q}$ and the matrix which changes our basis from the [standard basis](https://en.wikipedia.org/wiki/Standard_basis) to $J$. In general, a change-of-basis matrix is constructed by taking the basis vectors of the source vector space and replacing them with their respective [coordinate vectors](https://en.wikipedia.org/wiki/Coordinate_vector) in the target vector space. Because we're starting in the standard basis, the change-of-basis matrix is simply the basis vectors of the target vector space. So
+In other words if we want to apply the function represented by $M$ (which is defined in basis $A$) to vectors in basis $B$, simply transform those vectors into basis $A$, apply $M$, then transform them back; we construct $[M]_B$ by composing the functions which do so. In general, a change-of-basis matrix $\underset{B \leftarrow A}{P}$ is constructed by taking the basis vectors of the source vector space - $A$ - and replacing them with their respective [coordinate vectors](https://en.wikipedia.org/wiki/Coordinate_vector) in the target vector space. Because we're starting in the standard basis, the change-of-basis matrix is simply the basis vectors of the target vector space. The columns of $J$ are already described in the standard basis $E$, which means 
 
 <div class="math">
 
 $$
 \def\arraystretch{1.5}
 \begin{array}{llr}
-[\hat{Q}]_J &= P_{J\leftarrow E}^{-1} \hat{Q} P_{J\leftarrow E} \\
+J &= \underset{E \leftarrow J}{P}\\
+\underset{J \leftarrow E}{P} &= \underset{E\leftarrow J}{P}^{-1}\\
+&= J^{-1} \\
+&= J^{\top} & \text{because } J \text{ is orthogonal}
+\end{array}
+$$
+
+</div>
+
+So now we can construct $[\hat{Q}]_J$
+
+<div class="math">
+
+$$
+\def\arraystretch{1.5}
+\begin{array}{ll}
+[\hat{Q}]_J &= \underset{E\leftarrow J}{P}^{-1} \hat{Q} \underset{E\leftarrow J}{P} \\
 &= J^{-1}\hat{Q}J \\
-&= J^{\top}\hat{Q}J & \text{because } J \text{ is orthogonal} \\
+&= J^{\top}\hat{Q}J \\
 &= J^{\top}\frac{\hat{y}\hat{y}^{\top}}{\hat{y}^{\top}\hat{y}}J \\
 &= \frac{1}{\lVert\hat{y}\rVert^2}J^{\top}\hat{y}\hat{y}^{\top}J \\
 &= \frac{1}{\lVert\hat{y}\rVert^2}(J^{\top}\hat{y})(\hat{y}^{\top}J)
@@ -763,9 +784,9 @@ $$
 
 Which should be obvious in hindsight. $\hat{Q}$ was a matrix which projected onto $Span\{\hat{y}\}$. Now that we're in a vector space where the first basis vector is in the direction of $\hat{y}$, $[\hat{Q}]_J$ is a matrix which extracts the first element of any vector on which it acts, and zeroes out all other elements. 
 
-Next up, the definition of $\hat{P}$ in our new basis, which was the matrix which projected onto the orthogonal complement of $Span\{\hat{y}\}$[^16]
+Next up, the definition of $\hat{P}$ in our new basis, which was the matrix which projected onto the orthogonal complement of $Span\{\hat{y}\}$[^17]
 
-[^16]: From that statement alone one could guess the definition of $[\hat{P}]_J$, but we'll show it anyway
+[^17]: From that statement alone one could guess the definition of $[\hat{P}]_J$, but we'll show it anyway
 
 <div class="math">
 
