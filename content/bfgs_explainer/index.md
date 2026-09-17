@@ -119,13 +119,13 @@ $$
 
 </div>
 
-And this brings us to the major problem with Newtonian optimization: that pesky $B^{-1}$. Gradient descent determines each step with only the Jacobian $\nabla f$, which scales linearly with the number of inputs. But the Hessian $B$ grows quadratically with the number of inputs[^3]. Finding the Hessian for a function of one million variables (not very large by modern machine learning standards) would require calculating five-hundred-trillion unique partial second derivatives every step. The Hessian *then* needs to be inverted on each step, which is $O(n^{2.37})$ in the best case[^4].
+And this brings us to the major problem with Newtonian optimization: that pesky $B^{-1}$. Gradient descent determines each step with only the Jacobian $\nabla f$, which scales linearly with the number of inputs. But the Hessian $B$ grows quadratically with the number of inputs[^3]. Finding the Hessian for a function of one million variables (not very large by modern machine learning standards) would require calculating five-hundred-trillion unique partial second derivatives every step. The Hessian *then* needs to be inverted on each step, and inverting an $n \times n$ matrix is an $O(n^3)$ operation[^4].
 
 [^3]: The Hessian [must be symmetric](https://en.wikipedia.org/wiki/Symmetry_of_second_derivatives), meaning the Hessian for a function of $n$ inputs has $\frac{n(n-1)}{2} $ unique elements, instead of $n^2$.
 
-[^4]: and that's $O(n^{2.37})$ with respect to the number of elements in the matrix, not the number of inputs to the original function. A five-hundred-trillion element matrix takes between $5.32\times10^{27}$ and $1.25\times10^{35}$ operations to invert. On a CPU running three billion operations per second, the sun would explode before you were even 1% of the way there.
+[^4]: A one-million-by-one-million square matrix takes $10\times10 ^{18}$ operations to invert. On a CPU running three billion operations per second, simply inverting the Hessian a single time would take about ten and a half years.
 
-As amazing as Newtonian optimization is, it suffers from a terrible case of combinatorial explosion, and is impractical for all but the smallest problems.
+As amazing as Newtonian optimization is, it requires exponential amounts of computation, and is impractical for all but the smallest problems.
 
 ## Enter: Broyden, Fletcher, Goldfarb, and Shanno
 
