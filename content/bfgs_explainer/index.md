@@ -174,7 +174,7 @@ $$
 
 Where $c_1$ and $c_2$ are arbitrary positive constants, usually chosen as $10^{-4}$ and $0.9$ respectively. These two conditions place an upper and lower bound on $\alpha _k$.
 
-The first condition stops us from picking an overly large $\alpha _k$ and seriously overshooting the minimum. Think of the function on the right side of the inequality as a horizontal line that starts at $f(x_k)$ when $\alpha = 0$. As our theoretical step size (and thus candidate choice of $\alpha _k$) increases, that line drops. The further we step, the greater requirement we have for the decrease of $f$. Eventually, as we continue to increase $\alpha$, $f(x_k + \alpha p_k)$ will go past the function minimum and will pop up above the ever-decreasing horizontal line, breaking the inequality and giving us our absolute maximum $\alpha_k$. This inequality doesn't completely stop us from overshooting the minimum, but it does put a cap on how far we can go. It can be a little hard to picture, so here's how it works in practice
+The first condition stops us from picking an overly large $\alpha _k$ and seriously overshooting the minimum. Think of the right side of the inequality as a bar that starts at $f(x_k)$ when $\alpha = 0$. As our theoretical step size (and thus candidate choice of $\alpha _k$) increases, that bar drops. The further we step, the greater requirement we have for the decrease of $f$. Eventually, as we continue to increase $\alpha$, $f(x_k + \alpha p_k)$ will go past the function minimum and will pop up above the ever-decreasing horizontal bar, breaking the inequality and giving us our absolute maximum $\alpha_k$. This inequality doesn't completely stop us from overshooting the minimum, but it does put a cap on how far we can go. It can be a little hard to picture, so here's how it works in practice
 
 {{< media src="media/videos/bfgs_explainer/1080p60/LineSearch.mp4" >}}
 
@@ -234,7 +234,7 @@ In order to measure the difference, we might go with a simple Frobenius norm
 <div class="math">
 
 $$
-\lVert M \rVert _F = \sqrt{\sum_i \sum_j m_{ij}^2}
+\lVert M \rVert _F = \sqrt{\sum_i \sum_{\mathcal J} m_{ij}^2}
 $$
 
 </div>
@@ -624,24 +624,17 @@ We have shown the full BFGS algorithm. We have shown how one may derive the BFGS
 
 [^14]: Recall that here, "best" means the smallest weighted Frobenius norm of $H_{k+1} - H_k$, which is equivalent to the smallest un-weighted Frobenius norm of $\hat{H}_{k+1} - \hat{H_k}$
 
-We start by comparing how the choice of $\hat{Q}$ over $I$ affects the norm of the difference between $H_{k+1}$ and $H_k$. The difference between $\hat{Q}$ and $I$'s respective effects on the norm is easiest to see if we conduct a [change-of-basis](https://en.wikipedia.org/wiki/Change_of_basis)[^15] to a new vector space. Let $J$ be our new vector space with orthonormal basis $\{j_1, j_2, \ldots, j_n\}$. We define $j_1 = \frac{\hat{y}}{\lVert\hat{y}\rVert}$, and $\{j_2, \cdots , j_n\}$ as orthonormal vectors spanning the remainder of $J$. Because $J$ is an orthogonal matrix - composed of orthogonal vectors each with a norm of 1 - the change of basis does not affect the Frobenius norm 
+We start by comparing how the choice of $\hat{Q}$ over $I$ affects the norm of the difference between $H_{k+1}$ and $H_k$. The difference between $\hat{Q}$ and $I$'s respective effects on the norm is easiest to see if we conduct a [change-of-basis](https://en.wikipedia.org/wiki/Change_of_basis)[^15] to a new vector space. Let $\mathcal J$ be our new vector space with orthonormal basis $\{j_1, j_2, \ldots, j_n\}$. We define $j_1 = \frac{\hat{y}}{\lVert\hat{y}\rVert}$, and $\{j_2, \cdots , j_n\}$ as orthonormal vectors spanning the remainder of $\mathcal J$.
 
 [^15]: In this article I'm using the notation from *Linear Algebra And It's Applications, 4th ed, by David C. Lay*, which is the inverse of Wikipedia's notation. In discussing changing the basis of a vector $x$ from an old basis to a new basis, Wikipedia uses the term "change-of-basis" matrix to refer to a matrix $A$ s.t $x_old = Ax_new$. Under that notation regime, the matrix described by Wikipedia would be called the change-of-coordinate matrix, and the change-of-basis matrix would be $B$ s.t $Bx_old = x_new$. Note that $B = A^{-1}$
 
-<div class="math">
-
-$$
-\lVert J^{-1}MJ \rVert _F = \lVert M \rVert _F
-$$
-
-</div>
 
 So the construction with the lowest norm in our new basis will have the lowest norm outside of it as well. Since $\hat{H}_k$ is symmetric, we can define it in our new basis in the general form:
 
 <div class="math">
 
 $$
-[\hat{H}_k]_J = 
+[\hat{H}_k]_{\mathcal J} = 
 \begin{bmatrix}
 a & r^{\top} \\
 r & C
@@ -673,15 +666,15 @@ $$
 
 </div>
 
-In other words if we want to apply the function represented by $M$ (which is defined in basis $A$) to vectors in basis $B$, simply transform those vectors into basis $A$, apply $M$, then transform them back; we construct $[M]_B$ by composing the functions which do so. In general, a change-of-basis matrix $\underset{B \leftarrow A}{P}$ is constructed by taking the basis vectors of the source vector space - $A$ - and replacing them with their respective [coordinate vectors](https://en.wikipedia.org/wiki/Coordinate_vector) in the target vector space. Because we're starting in the standard basis, the change-of-basis matrix is simply the basis vectors of the target vector space. The columns of $J$ are already described in the standard basis $E$, which means 
+In other words if we want to apply the function represented by $M$ (which is defined in basis $A$) to vectors in basis $B$, simply transform those vectors into basis $A$, apply $M$, then transform them back; we construct $[M]_B$ by composing the functions which do so. In general, a change-of-basis matrix $\underset{B \leftarrow A}{P}$ is constructed by taking the basis vectors of the source vector space - $A$ - and replacing them with their respective [coordinate vectors](https://en.wikipedia.org/wiki/Coordinate_vector) in the target vector space. Let $J = [j_1, j_2, \cdot , j_n]$ be a matrix whose columns are the basis vectors of $\mathcal J$. The columns of $J$ are already described in the standard basis $\mathcal E$, which means 
 
 <div class="math">
 
 $$
 \def\arraystretch{1.5}
 \begin{array}{llr}
-J &= \underset{E \leftarrow J}{P}\\
-\underset{J \leftarrow E}{P} &= \underset{E\leftarrow J}{P}^{-1}\\
+J &= \underset{\mathcal E \leftarrow \mathcal J}{P}\\
+\underset{\mathcal J \leftarrow \mathcal E}{P} &= \underset{\mathcal E\leftarrow \mathcal J}{P}^{-1}\\
 &= J^{-1} \\
 &= J^{\top} & \text{because } J \text{ is orthogonal}
 \end{array}
@@ -689,14 +682,26 @@ $$
 
 </div>
 
-So now we can construct $[\hat{Q}]_J$
+Because $J$ is an orthogonal matrix - composed of orthogonal vectors each with a norm of 1 - the change of basis does not affect the Frobenius norm.
+
+<div class="math">
+
+$$
+\lVert J^{-1}HJ \rVert _F = \lVert H \rVert _F
+$$
+
+</div>
+
+So changing the basis between $\mathcal J$ and the standard basis won't affect our norms. If we prove our construction has the smallest norm in basis $\mathcal J$, then that proves it has the smallest norm in the standard basis $\mathcal E$
+
+Now let us construct $[\hat{Q}]_{\mathcal J}$
 
 <div class="math">
 
 $$
 \def\arraystretch{1.5}
 \begin{array}{ll}
-[\hat{Q}]_J &= \underset{E\leftarrow J}{P}^{-1} \hat{Q} \underset{E\leftarrow J}{P} \\
+[\hat{Q}]_{\mathcal J} &= \underset{\mathcal E\leftarrow \mathcal J}{P}^{-1} \hat{Q} \underset{\mathcal E\leftarrow \mathcal J}{P} \\
 &= J^{-1}\hat{Q}J \\
 &= J^{\top}\hat{Q}J \\
 &= J^{\top}\frac{\hat{y}\hat{y}^{\top}}{\hat{y}^{\top}\hat{y}}J \\
@@ -707,7 +712,7 @@ $$
 
 </div>
 
-Now remember that we defined $J$ such that $j_1 = \frac{\hat{y}}{\lVert\hat{y}\rVert}$, and the remaining columns $\{j_2, \dotsc, j_n\}$ are orthogonal to the first column, which means they're orthogonal to $\hat{y}$.
+Now remember that we defined $J$ as $j_1 = \frac{\hat{y}}{\lVert\hat{y}\rVert}$, and the remaining columns $\{j_2, \dotsc, j_n\}$ are orthogonal to the first column, which means they're orthogonal to $\hat{y}$.
 
 <div class="math">
 
@@ -760,14 +765,14 @@ $$
 
 </div>
 
-Then our definition of $\hat{Q}$ in the new basis is
+Then our definition of $\hat{Q}$ in basis $\mathcal J$ is
 
 <div class="math">
 
 $$
 \def\arraystretch{1.5}
 \begin{array}{llr}
-[\hat{Q}]_J &= \frac{1}{\lVert \hat{y} \rVert ^2} 
+[\hat{Q}]_{\mathcal J} &= \frac{1}{\lVert \hat{y} \rVert ^2} 
 \begin{bmatrix} \lVert \hat{y} \rVert \\ 0 \\ \vdots \\ 0 \end{bmatrix} 
 \begin{bmatrix} \lVert \hat{y} \rVert & 0 & \cdots & 0 \end{bmatrix} \\
 &= 
@@ -782,20 +787,20 @@ $$
 
 </div>
 
-Which should be obvious in hindsight. $\hat{Q}$ was a matrix which projected onto $Span\{\hat{y}\}$. Now that we're in a vector space where the first basis vector is in the direction of $\hat{y}$, $[\hat{Q}]_J$ is a matrix which extracts the first element of any vector on which it acts, and zeroes out all other elements. 
+Which should be obvious in hindsight. $\hat{Q}$ was a matrix which projected onto $Span\{\hat{y}\}$. Now that we're in a vector space where the first basis vector is in the direction of $\hat{y}$, $[\hat{Q}]_{\mathcal J}$ is a matrix which extracts the first element of any vector on which it acts, and zeroes out all other elements. 
 
 Next up, the definition of $\hat{P}$ in our new basis, which was the matrix which projected onto the orthogonal complement of $Span\{\hat{y}\}$[^17]
 
-[^17]: From that statement alone one could guess the definition of $[\hat{P}]_J$, but we'll show it anyway
+[^17]: From that statement alone one could guess the definition of $[\hat{P}]_{\mathcal J}$, but we'll show it anyway
 
 <div class="math">
 
 $$
 \def\arraystretch{1.5}
 \begin{array}{llr}
-[\hat{P}]_J &= J^{\top}(I - \hat{Q})J \\
+[\hat{P}]_{\mathcal J} &= J^{\top}(I - \hat{Q})J \\
 &= J^{\top}IJ - J^{\top}\hat{Q}J \\
-&= I - [\hat{Q}]_J \\
+&= I - [\hat{Q}]_{\mathcal J} \\
 &= \begin{bmatrix}
 1 & 0 \\
 0 & I_{n-1}
@@ -820,7 +825,7 @@ And therefore, our version of $\hat{H}_k$ with its action on $\hat{y}$ canceled 
 $$
 \def\arraystretch{1.5}
 \begin{array}{llr}
-[\hat{P}\hat{H}_k\hat{P}]_J &= 
+[\hat{P}\hat{H}_k\hat{P}]_{\mathcal J} &= 
 \begin{bmatrix}
 0 & 0 \\
 0 & I_{n-1}
@@ -859,7 +864,7 @@ Now lets start putting all the pieces together and see how they affect the norm.
 $$
 \def\arraystretch{1.5}
 \begin{array}{lcl}
-[\hat{P}\hat{H}_k\hat{P} + \hat{Q}]_J &= 
+[\hat{P}\hat{H}_k\hat{P} + \hat{Q}]_{\mathcal J} &= 
 \begin{bmatrix}
 1 & 0 \\
 0 & 0
@@ -873,7 +878,7 @@ $$
 1 & 0 \\
 0 & C
 \end{bmatrix} \\
-[\hat{P}\hat{H}_k\hat{P} + I]_J &= 
+[\hat{P}\hat{H}_k\hat{P} + I]_{\mathcal J} &= 
 \begin{bmatrix}
 1 & 0 \\
 0 & I_{n-1}
@@ -900,7 +905,7 @@ And now the norms
 $$
 \def\arraystretch{1.5}
 \begin{array}{llr}
-\lVert [\hat{P}\hat{H}_k\hat{P} + \hat{Q} - \hat{H}_k]_J \rVert _F &= \lVert
+\lVert [\hat{P}\hat{H}_k\hat{P} + \hat{Q} - \hat{H}_k]_{\mathcal J} \rVert _F &= \lVert
     \begin{bmatrix}
     1 & 0 \\
     0 & C
@@ -916,7 +921,7 @@ $$
     -r & 0
     \end{bmatrix} \rVert _F\\
 &= (1-a)^2 + 2\lVert r \rVert ^2 \\
-\lVert [\hat{P}\hat{H}_k\hat{P} + I - \hat{H}_k]_J \rVert _F &= \lVert
+\lVert [\hat{P}\hat{H}_k\hat{P} + I - \hat{H}_k]_{\mathcal J} \rVert _F &= \lVert
     \begin{bmatrix}
     1 & 0 \\
     0 & C + I_{n-1}
@@ -946,7 +951,7 @@ In our changed basis, it must be the case that
 $$
 \def\arraystretch{1.5}
 \begin{array}{llr}
-[\hat{H}_{k+1}]_J = 
+[\hat{H}_{k+1}]_{\mathcal J} = 
 \begin{bmatrix}
 1 & 0 \\
 0 & M
@@ -956,7 +961,7 @@ $$
 
 </div>
 
-where $M$ is an arbitrary $(n-1)\times(n-1)$ symmetric matrix. This must be true because $[\hat{H}_{k+1}]_J$ must map $\hat{y}$ to itself, and in our changed basis $\hat{y}$ only has a non-zero element in the first position. Therefore the first column of $[\hat{H}_{k+1}]_J$ must be 1 followed by 0s. And since the matrix is symmetric, the first row must be the same. The remaining elements, $M$, are free. So since $[\hat{H}_{k+1}]_J$ must take the form above, and $[\hat{H}_{k}]_J$ takes the general form $\begin{bmatrix}a & r^{\top} \\ r & C\end{bmatrix}$, then the general form of the norm is
+where $M$ is an arbitrary $(n-1)\times(n-1)$ symmetric matrix. This must be true because $[\hat{H}_{k+1}]_{\mathcal J}$ must map $\hat{y}$ to itself, and in our changed basis $\hat{y}$ only has a non-zero element in the first position. Therefore the first column of $[\hat{H}_{k+1}]_{\mathcal J}$ must be 1 followed by 0s. And since the matrix is symmetric, the first row must be the same. The remaining elements, $M$, are free. So since $[\hat{H}_{k+1}]_{\mathcal J}$ must take the form above, and $[\hat{H}_{k}]_{\mathcal J}$ takes the general form $\begin{bmatrix}a & r^{\top} \\ r & C\end{bmatrix}$, then the general form of the norm is
 
 
 <div class="math">
@@ -964,7 +969,7 @@ where $M$ is an arbitrary $(n-1)\times(n-1)$ symmetric matrix. This must be true
 $$
 \def\arraystretch{1.5}
 \begin{array}{ll}
-\lVert [\hat{H}_{k+1}]_J - [\hat{H}_k]_J \rVert _F &= \lVert 
+\lVert [\hat{H}_{k+1}]_{\mathcal J} - [\hat{H}_k]_{\mathcal J} \rVert _F &= \lVert 
     \begin{bmatrix}
     1 & 0 \\
     0 & M
@@ -982,7 +987,7 @@ $$
 
 </div>
 
-So the version of $[\hat{H}_{k+1}]_J$ which is minimally distant from $[\hat{H}_k]_J$ is the one where $M=C$, which is exactly our $[\hat{Q}]_J$ construction.
+So the version of $[\hat{H}_{k+1}]_{\mathcal J}$ which is minimally distant from $[\hat{H}_k]_{\mathcal J}$ is the one where $M=C$, which is exactly our $[\hat{Q}]_{\mathcal J}$ construction.
 
 We have now proved that $\hat{Q}$ is the optimal choice for the matrix that maps $\hat{y}$ to itself, and that the construction $\hat{P}\hat{H}_k\hat{P} + \hat{Q}$ is the optimal choice for $\hat{H}_{k+1}$, as it is the matrix closest to $\hat{H}_k$ – and thus the $H_{k+1}$ closest to $H_k$ – which satisfies our secant condition
 
