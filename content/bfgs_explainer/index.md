@@ -37,7 +37,7 @@ Pretend we don't know the true shape of $f(x)$; we have evaluated $f$ at the red
 But let us now *assume* the true function we're trying to minimize is quadratic (still pretending like we can't see the blue lines). In that case, the first derivative must be linear, and its slope is the value of the second derivative. Then we solve a simple $y = mx + b$ equation to find where the first derivative is zero, and we know the function minimum. Indeed we can see that the minimum of $f(x)$ is at the root of $f'$.
 
 
-Newtonian optimization uses the curvature of the function to estimate where the minimum *ought* to be, assuming the function is quadratic. Even if it's not a perfect bowl, Newtonian optimization can still find the minimum quickly. Let's see what that looks like in practice.
+Newtonian optimization uses the curvature of the function to estimate where the minimum *ought* to be, assuming the function is quadratic. Even if it's not a perfect bowl, we can still sometimes find the minimum quickly. Let's see what that looks like in practice.
 
 Here's a visual representation of how Newtonian optimization finds the minimum of a function compared to the more common gradient descent. The function here is the [Rosenbrock function](https://en.wikipedia.org/wiki/Rosenbrock_function).
 
@@ -45,7 +45,7 @@ Here's a visual representation of how Newtonian optimization finds the minimum o
 
 Using gradient descent to find the minimum requires walking down the canyon walls - initially moving *away* from the minimum - before tracing a path along the valley floor. In this demonstration, after 12,000 steps of Gradient descent we're still only approaching the minimum, while Newtonian optimization gets there exactly in 5 steps.
 
-Despite this incredible feat, pure Newtonian optimization has a couple drawbacks, which is why it's almost never used in practice. The first is its sensitivity to the curvature of the function to be minimized. If the function is not well approximated by a quadratic curve, then Newtonian optimization can give suboptimal results.
+Despite this incredible feat, pure Newtonian optimization has a couple drawbacks, which is why it's almost never used in practice. The first is its sensitivity to the curvature of the function to be minimized. If the function is not well approximated by a quadratic curve, then we can get quite suboptimal results.
 
 {{< media src="media/videos/bfgs_explainer/1080p60/SinusoidalValley.mp4" caption="$f(x) = \sin(x_0) + \sin(x_1)$" >}}
 
@@ -460,7 +460,7 @@ $$
 
 ### Part 3: Map $\hat{y}$ to $\hat{y}$
 
-For the second part of our construction we need a matrix that maps $\hat{y}$ to itself. The identity matrix $I$ is an obvious choice, but we also have $\hat{Q}$, the matrix we just defined above which projects onto $\operatorname{Span}\{\hat{y}\}$. It turns out that $\hat{Q}$ is the better choice. We will prove this later.
+For the second part of our construction we need a matrix that maps $\hat{y}$ to itself. The identity matrix $I$ is an obvious choice, but we also have $\hat{Q}$, the matrix we just defined above which projects onto $\operatorname{Span}\{\hat{y}\}$. It turns out that $\hat{Q}$ is the better choice, producing an $\hat{H}_{k+1}$ which is closer to $\hat{H}_k$ than if we used $I$. We will prove this later, as part of proving that our full construction of $\hat{H}_{k+1}$ is optimal.
 
 
 ### Part 4: Undo The Change of Variable
@@ -523,7 +523,7 @@ $$
 
 </div>
 
-Starting with the right part of that sum
+Let's start by changing back the variables in the numerator on the right part of the sum
 
 <div class="math">
 
@@ -539,7 +539,7 @@ $$
 
 </div>
 
-Let's deal with that denominator next
+now we'll change back the denominator
 
 <div class="math">
 
@@ -571,7 +571,7 @@ $$
 
 </div>
 
-Now, let's work on that first term. Starting from the right-hand side
+Now, let's change the variable back on the first term of the sum. Starting from the right-hand side of the sandwhiched multiplication
 
 <div class="math">
 
@@ -587,7 +587,7 @@ $$
 
 </div>
 
-Now the left-hand side
+Now we change back the variable on the left-hand side of the multiplication
 
 <div class="math">
 
@@ -601,7 +601,7 @@ $$
 
 </div>
 
-Just like 4.4.7, but since the  sides of the $W^{\frac{1}{2}}$ and $W^{-\frac{1}{2}}$ switched, we switched which $\hat{y}$ turned into $s_k$ and which $\hat{y}$ turned into $y_k$.
+This works out just like 4.4.7, but since the  sides of the $W^{\frac{1}{2}}$ and $W^{-\frac{1}{2}}$ switched, we switched which $\hat{y}$ turned into $s_k$ and which $\hat{y}$ turned into $y_k$.
 
 This means the update formula that gives a new estimated inverse Hessian, incorporating the new curvature information while staying as close to the old estimate as possible is
 
@@ -620,7 +620,7 @@ This is the same update formula as given in the BFGS algorithm above in step 5 o
 
 ## Proof
 
-We have shown the full BFGS algorithm. We have shown how one may derive the BFGS update formula from first principles, hopefully providing some intuition about how and why it works. However, our derivation included a seemingly arbitrary choice of $\hat{Q}$ over $I$ as our $\hat{y}$-to-$\hat{y}$ projection matrix. Furthermore, just because the formula we derived *works* doesn't guarantee that it is the *best* formula[^13]. Conveniently, proving that $\hat{Q}$ is the correct choice of projection matrix leads us right to the proof that our full update formula leads to the best possible $H_{k+1}$.
+We have shown the full BFGS algorithm. We have shown how one may derive the BFGS update formula from first principles, hopefully providing some intuition about how and why it works. However, our derivation included a seemingly arbitrary choice of $\hat{Q}$ over $I$ as our $\hat{y}$-to-$\hat{y}$ projection matrix. Furthermore, just because the formula we derived *works* doesn't guarantee that it is the *best* formula[^13]. Conveniently, proving that $\hat{Q}$ is the correct choice of projection matrix leads us right to the proof that our full update formula results in the best possible $H_{k+1}$.
 
 [^13]: Recall that here, "best" means the smallest weighted Frobenius norm of $H_{k+1} - H_k$, which is equivalent to the smallest un-weighted Frobenius norm of $\hat{H}_{k+1} - \hat{H}_k$.
 
@@ -857,7 +857,7 @@ $$
 
 </div>
 
-Now let's start putting all the pieces together and see how they affect the norm. Construction 1 using $\hat{Q}$ to send $\hat{y}$ to itself, and construction 2 using $I$ to do so
+Now let's start putting all the pieces together and see how they affect the norm. As we do, we'll provide the pieces to prove our entire construction is optimal. Construction 1 using $\hat{Q}$ to send $\hat{y}$ to itself, and construction 2 using $I$ to do so
 
 <div class="math">
 
@@ -1007,13 +1007,13 @@ It certainly appears to take more steps than Newtonian optimization. One might w
 
 The answer is that this function has no single true, Hessian, and thus no single inverse Hessian. As we walk along the canyon floor the approximate inverse Hessian is continuously being updated, but the true Hessian is also changing as we go, preventing us from ever learning "it" (because there is no single "it"), capping our step size.
 
-It's worth noting though - before one writes this exercise off and dismisses BFGS because it doesn't go any faster than gradient descent seemed to - that these animations are not perfectly to time-scale. When we watched gradient descent roll down the Rosenbrock canyon or roll into the sinusoid valley, we saw it move at constant speed; in reality, the first several steps are relatively large, and the vast majority of steps - the vast majority of iterations of that algorithm - occur right at the end. Take a look at this graph of training loss over amount of data trained on from [the LLaMa paper](https://arxiv.org/abs/2302.13971)
+Before one writes this exercise off and dismisses BFGS because it doesn't go any faster than gradient descent seemed to, it's worth noting that these animations are not perfectly to time-scale. When we watched gradient descent roll down the Rosenbrock canyon or roll into the sinusoid valley, we saw it move at constant speed; in reality, the first several steps are relatively large, and the vast majority of steps - the vast majority of iterations of that algorithm - occur right at the end. Take a look at this graph of training loss over amount of data trained on from [the LLaMa paper](https://arxiv.org/abs/2302.13971)
 
 {{< media src="images/llama-training-curves.png" caption="arXiv:2302.13971, Figure 1">}}
 
 Loss drops off quickly at the beginning, and then levels out as time goes on. Gradient descent is excellent at making quick, early steps toward the minimum, but is less effective the closer one gets. More advanced forms of gradient descent, like GD-with-momentum or Adam, address this issue and help gradient descent get closer to the minimum, but eventually they run into the same problem. 
 
-The closer you get to a function minimum, the less the overall noise and general topology of that function matter. Zoom in more and more around a function minimum (for just about any function) and the more it starts to resemble a gently sloping plain - a wide, flat bowl, very easily approximated by a quadratic curve. Which is exactly when BFGS works best! It is in these final approaches to the minimum that BFGS achieves [superlinear](https://en.wikipedia.org/wiki/Rate_of_convergence#Q-convergence) convergence: the ratio of the distance to the minimum on successive steps approaches zero as our steps approach infinity
+The closer you get to a function minimum, the less the overall noise and general topology of that function matter. The more we zoom in around a function minimum (for just about any function), the more it starts to resemble a gently curving plain - a wide, flat bowl, very easily approximated by a quadratic curve. Which is exactly when BFGS works best! It is in these final approaches to the minimum that BFGS achieves [superlinear](https://en.wikipedia.org/wiki/Rate_of_convergence#Q-convergence) convergence: the ratio of the distance to the minimum on successive steps approaches zero as our steps approach infinity
 
 <div class="math">
 
