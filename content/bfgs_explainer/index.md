@@ -28,22 +28,22 @@ Newtonian optimization rests on two ideas:
 
 [^1]: Newtonian optimization can actually work on functions where this isn't strictly true, but it's a critical assumption for the algorithm
 
-Let's examine this simple quadratic function, along with its first and second derivatives
+Let's examine this simple quadratic function, along with its first and second derivatives.
 
 {{< media src="generated_images/simple_quadratic.png" alt="quadratic function" themed="true">}}
 
-Pretend we don't know the true shape of $f(x)$; we have evaluated $f$ at the red dot ($x = 3.5$)and have calculated the value of its first and second derivatives at that point. Our goal is to find the minimum of the function, shown with the orange line. We learn that the derivative at this point is positive, meaning the function minimum must be to left, at a lower value of $x$. Under a first-order optimization algorithm like gradient descent, this is all the information we could glean; our next step would be to reduce $x$ a small amount and repeat. 
+Pretend we don't know the true shape of $f(x)$; we have evaluated $f$ at the red dot ($x = 3.5$)and have calculated the value of its first and second derivatives at that point. Our goal is to find the minimum of the function, shown with the orange line. We learn that the derivative at this point is positive, meaning the function minimum must be to the left, at a lower value of $x$. Under a first-order optimization algorithm like gradient descent, this is all the information we could glean; our next step would be to reduce $x$ a small amount and repeat. 
 
-But let us now *assume* the true function we're trying to minimize is quadratic (still pretending like we can't see the blue lines). In that case, the first derivative must be linear, and its slope is the value of the second derivative. Then we solve a simple $y = mx + b$ equation to find where the first derivative is zero, and we know the function minimum. Indeed we can see that the minimum of $f(x)$ is at the root of $f'$
+But let us now *assume* the true function we're trying to minimize is quadratic (still pretending like we can't see the blue lines). In that case, the first derivative must be linear, and its slope is the value of the second derivative. Then we solve a simple $y = mx + b$ equation to find where the first derivative is zero, and we know the function minimum. Indeed we can see that the minimum of $f(x)$ is at the root of $f'$.
 
 
 Newtonian optimization uses the curvature of the function to estimate where the minimum *ought* to be, assuming the function is quadratic. Even if it's not a perfect bowl, Newtonian optimization can still find the minimum quickly. Let's see what that looks like in practice.
 
-Here's visual representation of how Newtonian optimization finds the minimum of a function compared to the more common gradient descent. The function here is the [Rosenbrock function](https://en.wikipedia.org/wiki/Rosenbrock_function)
+Here's a visual representation of how Newtonian optimization finds the minimum of a function compared to the more common gradient descent. The function here is the [Rosenbrock function](https://en.wikipedia.org/wiki/Rosenbrock_function).
 
 {{< media src="media/videos/bfgs_explainer/1080p60/GradientVsNewtonian.mp4" caption="$f(x) = (1-x_0)^2 + 50(x_1-x_0^2)^2$" >}}
 
-Using gradient descent to find the minimum requires walking down the canyon walls - initially moving *away* from the minimum - before tracing a path along the valley floor. In this demonstration, after 12,000 steps of Gradient descent twe're still only approaching the minimum, while Newtonian optimization gets there exactly in 5 steps.
+Using gradient descent to find the minimum requires walking down the canyon walls - initially moving *away* from the minimum - before tracing a path along the valley floor. In this demonstration, after 12,000 steps of Gradient descent we're still only approaching the minimum, while Newtonian optimization gets there exactly in 5 steps.
 
 Despite this incredible feat, pure Newtonian optimization has a couple drawbacks, which is why it's almost never used in practice. The first is its sensitivity to the curvature of the function to be minimized. If the function is not well approximated by a quadratic curve, then Newtonian optimization can give suboptimal results.
 
@@ -51,7 +51,7 @@ Despite this incredible feat, pure Newtonian optimization has a couple drawbacks
 
 Here, gradient descent is able to find the minimum but Newtonian optimization quickly gets stuck in a saddle point. While Newtonian optimization can be *used* to find a function minimum, all the algorithm actually seeks is a nearby point where the gradient is zero. Here, the algorithm brings us to one such point, just not the one we would have preferred.
 
-Newtonian optimization has one additional drawback, which will be present no matter how close the true function is to a quadratic, and which motivates the creation of BFGS. To see it, lets walk through the math.
+Newtonian optimization has one additional drawback, which will be present no matter how close the true function is to a quadratic, and which motivates the creation of BFGS. To see it, let's walk through the math.
 
 In order to derive the algorithm for Newtonian optimization, we start by approximating the true function with a second-order [Taylor Expansion](https://en.wikipedia.org/wiki/Taylor_series)[^2]:
 
@@ -61,10 +61,10 @@ $f(x_0 + s) = f(x_0) + f'(x_0) * s + \frac{1}{2}f''(x_0) * s^2$
 
 </div>
 
-[^2]: If you're unfamiliar with Taylor Series, you may recognize this equation from Physics class as the formula for the position $p$ of an object at some time $t$: $p(t) = p(t_0) + v t + \frac{1}{2} at^2$
+[^2]: If you're unfamiliar with Taylor Series, you may recognize this equation from Physics class as the formula for the position $p$ of an object at some time $t$: $p(t) = p(t_0) + v t + \frac{1}{2} at^2$.
 
 
-Where $x_0$ is a point at which we've evaluated $f$ and $s$ is a proposed step. We said above that the minimum of $f(x_0+s)$ must be at a root of $f'$, so we can find the step that will bring us to the minimum by setting the derivative of $f$ equal to $0$
+Where $x_0$ is a point at which we've evaluated $f$ and $s$ is a proposed step. We said above that the minimum of $f(x_0+s)$ must be at a root of $f'$, so we can find the step that will bring us to the minimum by setting the derivative of $f$ equal to $0$.
 
 
 <div class="math">
@@ -80,9 +80,9 @@ $$
 
 </div>
 
-So, starting from evaluating $f$ at some point $x$, the minimum of $f$ is at $x_{\min} = x + s$, where $s$ is our step size of $-\frac{f'(x_0)}{f''(x_0)}$. In other words $argmin_x f(x) = x_0 - \frac{f'(x_0)}{f''(x_0)}$
+So, starting from evaluating $f$ at some point $x$, the minimum of $f$ is at $x_{\min} = x + s$, where $s$ is our step size of $-\frac{f'(x_0)}{f''(x_0)}$. In other words $\operatorname{argmin}_x f(x) = x_0 - \frac{f'(x_0)}{f''(x_0)}$.
 
-Lets generalize this to functions of multiple variables. $f'(x)$ becomes the [Jacobian](https://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant) $\nabla f$, a vector of partial first derivatives. $f''(x)$ becomes the [Hessian](https://en.wikipedia.org/wiki/Hessian_matrix) $B$, a matrix of partial second derivatives.
+let's generalize this to functions of multiple variables. $f'(x)$ becomes the [Jacobian](https://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant) $\nabla f$, a vector of partial first derivatives. $f''(x)$ becomes the [Hessian](https://en.wikipedia.org/wiki/Hessian_matrix) $B$, a matrix of partial second derivatives.
 
 Starting with our definitions
 <div class="math">
@@ -119,13 +119,13 @@ $$
 
 </div>
 
-And this brings us to the major problem with Newtonian optimization: that pesky $B^{-1}$. Gradient descent determines each step with only the Jacobian $∇f$, which scales linearly with the number of inputs. But the Hessian $B$ grows quadratically with the number of inputs[^3]. Finding the Hessian for a function of one million variables (not very large by modern machine learning standards) would require calculating five-hundred-trillion unique partial second derivatives every step. The Hessian *then* needs to be inverted on each step, which is $O(n^{2.37})$ in the best case[^4].
+And this brings us to the major problem with Newtonian optimization: that pesky $B^{-1}$. Gradient descent determines each step with only the Jacobian $\nabla f$, which scales linearly with the number of inputs. But the Hessian $B$ grows quadratically with the number of inputs[^3]. Finding the Hessian for a function of one million variables (not very large by modern machine learning standards) would require calculating five-hundred-trillion unique partial second derivatives every step. The Hessian *then* needs to be inverted on each step, which is $O(n^{2.37})$ in the best case[^4].
 
-[^3]: The Hessian [must be symmetric](https://en.wikipedia.org/wiki/Symmetry_of_second_derivatives), meaning the Hessian for a function of $n$ inputs has $\frac{n(n-1)}{2} $ unique elements, instead of $n^2$
+[^3]: The Hessian [must be symmetric](https://en.wikipedia.org/wiki/Symmetry_of_second_derivatives), meaning the Hessian for a function of $n$ inputs has $\frac{n(n-1)}{2} $ unique elements, instead of $n^2$.
 
-[^4]: and that's $O(n^{2.37})$ with respect to the number of elements in the matrix, not the number of inputs to the original function. A five-hundred-trillion element matrix takes between $5.32e27$ and $1.25e35$ operations to invert. On a CPU running three billion operations per second, the sun would explode before you were even 1% of the way there
+[^4]: and that's $O(n^{2.37})$ with respect to the number of elements in the matrix, not the number of inputs to the original function. A five-hundred-trillion element matrix takes between $5.32\times10^{27}$ and $1.25\times10^{35}$ operations to invert. On a CPU running three billion operations per second, the sun would explode before you were even 1% of the way there.
 
-As amazing as Newtonian optimization is, it suffers from a terrible case of combinatorial explosion, and is impractical for all but the smallest problems
+As amazing as Newtonian optimization is, it suffers from a terrible case of combinatorial explosion, and is impractical for all but the smallest problems.
 
 ## Enter: Broyden, Fletcher, Goldfarb, and Shanno
 
@@ -152,13 +152,13 @@ $$
 After which we return to step 1 and repeat, now with a better understanding of the curvature of the function thanks to our updated $H$. 
 
 If you think that update equation in step 5 fell from the sky and was bestowed upon us by aliens, you are not alone. 
-Let's explain that line search in step two, and then we'll get to the point of this article - deriving the update algorithm and proving that it is optimal
+Let's explain that line search in step two, and then we'll get to the point of this article - deriving the update algorithm and proving that it is optimal.
 
 ## A Line Search to Satisfy Wolfe Conditions
 
 Step one of the algorithm gives us search direction $p_k$, but we don't necessarily want to step a full $\lvert p_k \rvert$. The only reason you'd be certain $s_k = p_k$ would be if A) $f$ was in fact purely quadratic and B) $H$ was the true inverse Hessian. Given that we want to apply this algorithm to functions besides quadratic functions, and that $H$ is merely an approximation of the inverse Hessian which we're building over time, neither A nor B hold. We need a way to more carefully pick how far in the direction $p_k$ we want to go. 
 
-In order figure out how far in the direction $p_k$ to travel between steps $k$ and $k+1$, we conduct a line search to satisfy [Wolfe conditions](https://en.wikipedia.org/wiki/Wolfe_conditions). All that means is we pick some starting $\alpha _k$ (usually $\alpha _k = 1$), evaluate $f(x_k + \alpha _k p_k)$ and  $\nabla f(x_k + \alpha _k p_k)$, check them against certain conditions, and adjust $\alpha _k$ until our conditions are met. The two conditions we want satisfied are
+In order to figure out how far in the direction $p_k$ to travel between steps $k$ and $k+1$, we conduct a line search to satisfy [Wolfe conditions](https://en.wikipedia.org/wiki/Wolfe_conditions). All that means is we pick some starting $\alpha _k$ (usually $\alpha _k = 1$), evaluate $f(x_k + \alpha _k p_k)$ and  $\nabla f(x_k + \alpha _k p_k)$, check them against certain conditions, and adjust $\alpha _k$ until our conditions are met. The two conditions we want satisfied are
 
 <div class = "math">
 
@@ -225,7 +225,7 @@ This forms a simple [system of linear equations](https://en.wikipedia.org/wiki/S
 
 [^8]: $H$ is the inverse of $B$, and $B$ must be symmetric per footnote 3, so $H$ must be symmetric
 
-[^9]: And if $n<=2$ we might as well use another algorithm
+[^9]: And if $n\le 2$ we might as well use another algorithm
 
 Of those infinite $H$s, it is hopefully uncontroversial that we want the one that is closest to $H_k$. After all, our estimate of the inverted Hessian builds up curvature information as we iterate, and we'd like to preserve as much of that information as possible. The candidate $H$ we want for $H_{k+1}$ is the matrix that changes *as little as possible* from $H_k$ while still satisfying our criteria.
 
@@ -254,22 +254,22 @@ $$
 
 We want to stay as close to $H_k$ as possible, so our goal is to find some $H$ which minimizes $\lVert H - H_k \rVert _W$ subject to $Hy_k = s_k$[^10].
 
-[^10]: And is symmetric. If $H$ isn't symmetric then it's not a proper approximation of the inverse Hessian
+[^10]: And is symmetric. If $H$ isn't symmetric then it's not a proper approximation of the inverse Hessian.
 
-We are now ready to begin our derivation of the update algorithm
+We are now ready to begin our derivation of the update algorithm.
 
 
 
 ### Part 1: Change of Variable
 
-Since we're going to weight our $H$s as part of measuring distance, lets talk about the weighted matrices
+Since we're going to weight our $H$s as part of measuring distance, let's talk about the weighted matrices
 
 <div class="math">
 
 $$
 \begin{array}{c}
 \hat{H} = W^{\frac{1}{2}} H W^{\frac{1}{2}} \\
-\hat{H_k} = W^{\frac{1}{2}} H_k W^{\frac{1}{2}} \\
+\hat{H}_k = W^{\frac{1}{2}} H_k W^{\frac{1}{2}} \\
 \end{array}
 $$
 
@@ -307,7 +307,7 @@ Now our measure of distance is
 <div class="math">
 
 $$
-\lVert H - H_k \rVert _W = \lVert \hat{H} - \hat{H_k} \rVert _F
+\lVert H - H_k \rVert _W = \lVert \hat{H} - \hat{H}_k \rVert _F
 $$
 
 </div>
@@ -322,9 +322,9 @@ $$
 
 </div>
 
-Now lets talk about that weight matrix $W$. We're never going to actually construct $\hat{H} = W^{\frac{1}{2}}HW^{\frac{1}{2}}$, so the choice of weight matrix is purely algebraic. Let's choose as our weight matrix $G$, the[^12] average Hessian of $f$
+Now let's talk about that weight matrix $W$. We're never going to actually construct $\hat{H} = W^{\frac{1}{2}}HW^{\frac{1}{2}}$, so the choice of weight matrix is purely algebraic. Let's choose as our weight matrix $G$, the[^11] average Hessian of $f$
 
-[^12]: (theoretical)
+[^11]: (theoretical)
 
 <div class="math">
 
@@ -379,9 +379,9 @@ $$
 
 </div>
 
-So we're looking for a matrix $\hat{H}$ which maps $\hat{y}$ to itself, still mindful of staying as close to $\hat{H_k}$ as possible (and always symmetric). Our method will be thus: modify $\hat{H}_k$ in order to cancel its current action on $\hat{y}$, then construct and add in a matrix that maps $\hat{y}$ as we desire [^13].
+So we're looking for a matrix $\hat{H}$ which maps $\hat{y}$ to itself, still mindful of staying as close to $\hat{H_k}$ as possible (and always symmetric). Our method will be thus: modify $\hat{H}_k$ in order to cancel its current action on $\hat{y}$, then construct and add in a matrix that maps $\hat{y}$ as we desire [^12].
 
-[^13]: If this also seems plucked from the sky, bear with me. It will all work out
+[^12]: If this also seems plucked from the sky, bear with me. It will all work out
 
 
 ### Part 2: Cancel Action On $\hat{y}$ 
@@ -390,7 +390,7 @@ Let $\hat{Q}$ be a matrix that projects onto the subspace spanned by $\hat{y}$. 
 
 {{< media src="generated_images/project_onto_y_p1.png" alt="Projecting the vector x onto the subspace spanned by y" themed="true">}}
 
-Then lets define $x$ in terms of the portion parallel to $\hat{y}$ – $\hat{Q}x$ – and the remaining part, which we'll call $z$
+Then let's define $x$ in terms of the portion parallel to $\hat{y}$ – $\hat{Q}x$ – and the remaining part, which we'll call $z$
 
 <div class="math">
 
@@ -424,7 +424,7 @@ $$
 
 </div>
 
-So for any matrix $\hat{Q}$ which projects onto a subspace $L$, the matrix $I-\hat{Q}$ will project onto the subspace orthogonal to $L$. Lets call this complementary matrix $\hat{P}$
+So for any matrix $\hat{Q}$ which projects onto a subspace $L$, the matrix $I-\hat{Q}$ will project onto the subspace orthogonal to $L$. Let's call this complementary matrix $\hat{P}$
 
 <div class="math">
 
@@ -437,7 +437,7 @@ $$
 
 {{< media src="generated_images/project_onto_y_p2.png" alt="Projecting the vector x onto both y and its complement" themed="true">}}
 
-Since $\hat{P}$ projects onto a subspace orthogonal to $Span\{\hat{y}\}$, $\hat{P}\hat{y} = 0$. We now have the mechanism to cancel action on $\hat{y}$. Our matrix for part 2 – something *like* $\hat{H}_k$ that maps $\hat{y}$ to 0 – will be
+Since $\hat{P}$ projects onto a subspace orthogonal to $\operatorname{Span}\{\hat{y}\}$, $\hat{P}\hat{y} = 0$. We now have the mechanism to cancel action on $\hat{y}$. Our matrix for part 2 – something *like* $\hat{H}_k$ that maps $\hat{y}$ to 0 – will be
 
 <div class="math">
 
@@ -460,7 +460,7 @@ $$
 
 ### Part 3: Map $\hat{y}$ to $\hat{y}$
 
-For the second part of our construction we need a matrix that maps $\hat{y}$ to itself. The identity matrix $I$ is an obvious choice, but we also have $\hat{Q}$, the matrix we just defined above which projects onto $Span\{\hat{y}\}$. It turns out that $\hat{Q}$ is the better choice. We will prove this later.
+For the second part of our construction we need a matrix that maps $\hat{y}$ to itself. The identity matrix $I$ is an obvious choice, but we also have $\hat{Q}$, the matrix we just defined above which projects onto $\operatorname{Span}\{\hat{y}\}$. It turns out that $\hat{Q}$ is the better choice. We will prove this later.
 
 
 ### Part 4: Undo The Change of Variable
@@ -620,13 +620,13 @@ This is the same update formula as given in the BFGS algorithm above in step 5 o
 
 ## Proof
 
-We have shown the full BFGS algorithm. We have shown how one may derive the BFGS update formula from first principles, hopefully providing some intuition about how and why it works. However, our derivation included a seemingly arbitrary choice of $\hat{Q}$ over $I$ as our $\hat{y}$-to-$\hat{y}$ projection matrix. Furthermore, just because the formula we derived *works* doesn't guarantee that it is the *best* formula[^14]. Conveniently, proving that $\hat{Q}$ is the correct choice of projection matrix leads us right to the proof that our full update formula leads to the best possible $H_{k+1}$
+We have shown the full BFGS algorithm. We have shown how one may derive the BFGS update formula from first principles, hopefully providing some intuition about how and why it works. However, our derivation included a seemingly arbitrary choice of $\hat{Q}$ over $I$ as our $\hat{y}$-to-$\hat{y}$ projection matrix. Furthermore, just because the formula we derived *works* doesn't guarantee that it is the *best* formula[^13]. Conveniently, proving that $\hat{Q}$ is the correct choice of projection matrix leads us right to the proof that our full update formula leads to the best possible $H_{k+1}$.
 
-[^14]: Recall that here, "best" means the smallest weighted Frobenius norm of $H_{k+1} - H_k$, which is equivalent to the smallest un-weighted Frobenius norm of $\hat{H}_{k+1} - \hat{H_k}$
+[^13]: Recall that here, "best" means the smallest weighted Frobenius norm of $H_{k+1} - H_k$, which is equivalent to the smallest un-weighted Frobenius norm of $\hat{H}_{k+1} - \hat{H}_k$.
 
-We start by comparing how the choice of $\hat{Q}$ over $I$ affects the norm of the difference between $H_{k+1}$ and $H_k$. The difference between $\hat{Q}$ and $I$'s respective effects on the norm is easiest to see if we conduct a [change-of-basis](https://en.wikipedia.org/wiki/Change_of_basis)[^15] to a new vector space. Let $\mathcal J$ be our new vector space with orthonormal basis $\{j_1, j_2, \ldots, j_n\}$. We define $j_1 = \frac{\hat{y}}{\lVert\hat{y}\rVert}$, and $\{j_2, \cdots , j_n\}$ as orthonormal vectors spanning the remainder of $\mathcal J$.
+We start by comparing how the choice of $\hat{Q}$ over $I$ affects the norm of the difference between $H_{k+1}$ and $H_k$. The difference between $\hat{Q}$ and $I$'s respective effects on the norm is easiest to see if we conduct a [change-of-basis](https://en.wikipedia.org/wiki/Change_of_basis)[^14] to a new vector space. Let $\mathcal J$ be our new vector space with orthonormal basis $\{j_1, j_2, \ldots, j_n\}$. We define $j_1 = \frac{\hat{y}}{\lVert\hat{y}\rVert}$, and $\{j_2, \cdots , j_n\}$ as orthonormal vectors spanning the remainder of $\mathcal J$.
 
-[^15]: In this article I'm using the notation from *Linear Algebra And It's Applications, 4th ed, by David C. Lay*, which is the inverse of Wikipedia's notation. In discussing changing the basis of a vector $x$ from an old basis to a new basis, Wikipedia uses the term "change-of-basis" matrix to refer to a matrix $A$ s.t $x_old = Ax_new$. Under that notation regime, the matrix described by Wikipedia would be called the change-of-coordinate matrix, and the change-of-basis matrix would be $B$ s.t $Bx_old = x_new$. Note that $B = A^{-1}$
+[^14]: In this article I'm using the notation from *Linear Algebra And It's Applications, 4th ed, by David C. Lay*, which is the inverse of Wikipedia's notation. In discussing changing the basis of a vector $x$ from an old basis to a new basis, Wikipedia uses the term "change-of-basis" matrix to refer to a matrix $A$ s.t $x_old = Ax_new$. Under that notation regime, the matrix described by Wikipedia would be called the change-of-coordinate matrix, and the change-of-basis matrix would be $B$ s.t $Bx_old = x_new$. Note that $B = A^{-1}$.
 
 
 So the construction with the lowest norm in our new basis will have the lowest norm outside of it as well. Since $\hat{H}_k$ is symmetric, we can define it in our new basis in the general form:
@@ -643,9 +643,9 @@ $$
 
 </div>
 
-Where $a$ is a scalar, $r$ is a vector of length $n-1$, and $C$ is an $(n-1)\times(n-1)$ symmetrical matrix[^16]. Next lets look at $\hat{Q}$ in our new basis. For any matrix $M$ which maps between vectors in some vector space $A$, the formula to change its basis to vector space $B$ is as follows
+Where $a$ is a scalar, $r$ is a vector of length $n-1$, and $C$ is an $(n-1)\times(n-1)$ symmetrical matrix[^15]. Next let's look at $\hat{Q}$ in our new basis. For any matrix $M$ which maps between vectors in some vector space $A$, the formula to change its basis to vector space $B$ is as follows
 
-[^16]: This representation actually has nothing to do with the change-of-basis. We can always write out a symmetrical matrix this way. We just haven't needed to before now
+[^15]: This representation actually has nothing to do with the change-of-basis. We can always write out a symmetrical matrix this way. We just haven't needed to before now
 
 <div class="math">
 
@@ -787,11 +787,11 @@ $$
 
 </div>
 
-Which should be obvious in hindsight. $\hat{Q}$ was a matrix which projected onto $Span\{\hat{y}\}$. Now that we're in a vector space where the first basis vector is in the direction of $\hat{y}$, $[\hat{Q}]_{\mathcal J}$ is a matrix which extracts the first element of any vector on which it acts, and zeroes out all other elements. 
+Which should be obvious in hindsight. $\hat{Q}$ was a matrix which projected onto $\operatorname{Span}\{\hat{y}\}$. Now that we're in a vector space where the first basis vector is in the direction of $\hat{y}$, $[\hat{Q}]_{\mathcal J}$ is a matrix which extracts the first element of any vector on which it acts, and zeroes out all other elements. 
 
-Next up, the definition of $\hat{P}$ in our new basis, which was the matrix which projected onto the orthogonal complement of $Span\{\hat{y}\}$[^17]
+Next up, the definition of $\hat{P}$ in our new basis, which was the matrix which projected onto the orthogonal complement of $\operatorname{Span}\{\hat{y}\}$[^16]
 
-[^17]: From that statement alone one could guess the definition of $[\hat{P}]_{\mathcal J}$, but we'll show it anyway
+[^16]: From that statement alone one could guess the definition of $[\hat{P}]_{\mathcal J}$, but we'll show it anyway
 
 <div class="math">
 
@@ -857,7 +857,7 @@ $$
 
 </div>
 
-Now lets start putting all the pieces together and see how they affect the norm. Construction 1 using $\hat{Q}$ to send $\hat{y}$ to itself, and construction 2 using $I$ to do so
+Now let's start putting all the pieces together and see how they affect the norm. Construction 1 using $\hat{Q}$ to send $\hat{y}$ to itself, and construction 2 using $I$ to do so
 
 <div class="math">
 
@@ -989,13 +989,13 @@ $$
 
 So the version of $[\hat{H}_{k+1}]_{\mathcal J}$ which is minimally distant from $[\hat{H}_k]_{\mathcal J}$ is the one where $M=C$, which is exactly our $[\hat{Q}]_{\mathcal J}$ construction.
 
-We have now proved that $\hat{Q}$ is the optimal choice for the matrix that maps $\hat{y}$ to itself, and that the construction $\hat{P}\hat{H}_k\hat{P} + \hat{Q}$ is the optimal choice for $\hat{H}_{k+1}$, as it is the matrix closest to $\hat{H}_k$ – and thus the $H_{k+1}$ closest to $H_k$ – which satisfies our secant condition
+We have now proved that $\hat{Q}$ is the optimal choice for the matrix that maps $\hat{y}$ to itself, and that the construction $\hat{P}\hat{H}_k\hat{P} + \hat{Q}$ is the optimal choice for $\hat{H}_{k+1}$, as it is the matrix closest to $\hat{H}_k$ – and thus the $H_{k+1}$ closest to $H_k$ – which satisfies our secant condition.
 
 ## BFGS In Practice
 
 Let's take a look at how well BFGS handles the optimization scenarios we considered at the top of this article. Here's how BFGS handles our sin-based worst-case-for-Newtonian scenario
 
-{{< media src="media/videos/bfgs_explainer/1080p60/BfgsSinusoidal.mp4" caption="BFGS $f(x) = sin(x_0) + sin(x_1)$" >}}
+{{< media src="media/videos/bfgs_explainer/1080p60/BfgsSinusoidal.mp4" caption="BFGS $f(x) = \sin(x_0) + \sin(x_1)$" >}}
 
 BFGS actually works much better on this problem than pure Newtonian optimization did! BFGS' approximations keep it from getting immediately stuck in the saddle point and give it a chance to find the true minimum. 
 
@@ -1005,7 +1005,7 @@ How does BFGS do at our Rosenbrock canyon?
 
 It certainly appears to take more steps than Newtonian optimization. One might wonder "if BFGS is learning the inverted Hessian, and updating that approximation with more and more information at each step, why does it crawl down the canyon, taking little steps each time? Why doesn't it eventually learn and take bigger steps?"
 
-The answer is that this function has no single, true, Hessian, and thus no single inverse Hessian. As we walk along the canyon floor the approximate inverse Hessian is continuously being updated, but the true Hessian is also changing as we go, preventing us from ever learning "it" (because there is no single "it"), capping our step size.
+The answer is that this function has no single true, Hessian, and thus no single inverse Hessian. As we walk along the canyon floor the approximate inverse Hessian is continuously being updated, but the true Hessian is also changing as we go, preventing us from ever learning "it" (because there is no single "it"), capping our step size.
 
 It's worth noting though - before one writes this exercise off and dismisses BFGS because it doesn't go any faster than gradient descent seemed to - that these animations are not perfectly to time-scale. When we watched gradient descent roll down the Rosenbrock canyon or roll into the sinusoid valley, we saw it move at constant speed; in reality, the first several steps are relatively large, and the vast majority of steps - the vast majority of iterations of that algorithm - occur right at the end. Take a look at this graph of training loss over amount of data trained on from [the LLaMa paper](https://arxiv.org/abs/2302.13971)
 
