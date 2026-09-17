@@ -121,7 +121,7 @@ $$
 
 And this brings us to the major problem with Newtonian optimization: that pesky $B^{-1}$. Gradient descent determines each step with only the Jacobian $\nabla f$, which scales linearly with the number of inputs. But the Hessian $B$ grows quadratically with the number of inputs[^3]. Finding the Hessian for a function of one million variables (not very large by modern machine learning standards) would require calculating five-hundred-trillion unique partial second derivatives every step. The Hessian *then* needs to be inverted on each step, and inverting an $n \times n$ matrix is an $O(n^3)$ operation[^4].
 
-[^3]: The Hessian [must be symmetric](https://en.wikipedia.org/wiki/Symmetry_of_second_derivatives), meaning the Hessian for a function of $n$ inputs has $\frac{n(n-1)}{2} $ unique elements, instead of $n^2$.
+[^3]: The Hessian [must be symmetric](https://en.wikipedia.org/wiki/Symmetry_of_second_derivatives), meaning the Hessian for a function of $n$ inputs has $\frac{n(n+1)}{2} $ unique elements, instead of $n^2$.
 
 [^4]: A one-million-by-one-million square matrix takes $10\times10 ^{18}$ operations to invert. On a CPU running three billion operations per second, simply inverting the Hessian a single time would take about ten and a half years.
 
@@ -219,13 +219,13 @@ $H_{k+1} y_k = s_k$
 
 </div>
 
-This forms a simple [system of linear equations](https://en.wikipedia.org/wiki/System_of_linear_equations) that ought to be familiar to most folks who've studied linear algebra [^7]. We run into a wrinkle, however: our system is horribly underspecified. We have a system of $n$ equations, but $  \frac{n(n-1)}{2}$ free variables[^8]. For $n > 2$ there are an infinite number of possible new $H$s that could satisfy our secant equation[^9]. 
+This forms a simple [system of linear equations](https://en.wikipedia.org/wiki/System_of_linear_equations) that ought to be familiar to most folks who've studied linear algebra [^7]. We run into a wrinkle, however: our system is horribly underspecified. We have a system of $n$ equations, but $  \frac{n(n+1)}{2}$ free variables[^8]. For $n >1$ there are an infinite number of possible new $H$s that could satisfy our secant equation[^9]. 
 
 [^7]: if it's not, see [Gaussian elimination](https://en.wikipedia.org/wiki/Gaussian_elimination) for an explanation of how systems of equations can be viewed as matrix algebra, and vice versa
 
 [^8]: $H$ is the inverse of $B$, and $B$ must be symmetric per footnote 3, so $H$ must be symmetric
 
-[^9]: And if $n\le 2$ we might as well use another algorithm
+[^9]: And if $n = 1$ we might as well use a simpler algorithm
 
 Of those infinite $H$s, it is hopefully uncontroversial that we want the one that is closest to $H_k$. After all, our estimate of the inverted Hessian builds up curvature information as we iterate, and we'd like to preserve as much of that information as possible. The candidate $H$ we want for $H_{k+1}$ is the matrix that changes *as little as possible* from $H_k$ while still satisfying our criteria.
 
