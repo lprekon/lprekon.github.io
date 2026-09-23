@@ -125,7 +125,7 @@ And this brings us to the major problem with Newtonian optimization: that pesky 
 
 [^4]: A one-million-by-one-million square matrix takes $10\times10 ^{18}$ operations to invert. On a CPU running three billion operations per second, simply inverting the Hessian a single time would take about ten and a half years.
 
-As amazing as Newtonian optimization is, it requires exponential amounts of computation, and is impractical for all but the smallest problems.
+As amazing as Newtonian optimization is, the computation required grows cubicly with the number of parameters. It is therefore impractical for all but the smallest problems.
 
 ## Enter: Broyden, Fletcher, Goldfarb, and Shanno
 
