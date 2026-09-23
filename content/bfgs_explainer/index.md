@@ -897,7 +897,7 @@ $$
 
 </div>
 
-And now the norms
+When we use the first construction, the norm of the difference between our candidate $\hat{H}$ and $\hat{H}_{k+1}$
 
 
 <div class="math">
@@ -920,7 +920,19 @@ $$
     1-a & -r^{\top} \\
     -r & 0
     \end{bmatrix} \rVert _F\\
-&= (1-a)^2 + 2\lVert r \rVert ^2 \\
+&= \sqrt{(1-a)^2 + 2\lVert r \rVert ^2}
+\end{array}
+$$
+
+</div>
+
+When we use the second construction, the norm is
+
+<div class="math">
+
+$$
+\def\arraystretch{1.5}
+\begin{array}{llr}
 \lVert [\hat{P}\hat{H}_k\hat{P} + I - \hat{H}_k]_{\mathcal J} \rVert _F &= \lVert
     \begin{bmatrix}
     1 & 0 \\
@@ -936,7 +948,7 @@ $$
     1-a & -r^{\top} \\
     -r & I_{n-1}
     \end{bmatrix} \rVert _F\\
-&= (1-a)^2 + 2\lVert r \rVert ^2 + (n-1)
+&= \sqrt{(1-a)^2 + 2\lVert r \rVert ^2 + (n-1)}
 \end{array}
 $$
 
