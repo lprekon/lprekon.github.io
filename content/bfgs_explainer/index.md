@@ -628,8 +628,7 @@ We start by comparing how the choice of $\hat{Q}$ over $I$ affects the norm of t
 
 [^14]: In this article I'm using the notation from *Linear Algebra And It's Applications, 4th ed, by David C. Lay*, which is the inverse of Wikipedia's notation. In discussing changing the basis of a vector $x$ from an old basis to a new basis, Wikipedia uses the term "change-of-basis" matrix to refer to a matrix $A$ s.t $x_old = Ax_new$. Under that notation regime, the matrix described by Wikipedia would be called the change-of-coordinate matrix, and the change-of-basis matrix would be $B$ s.t $Bx_old = x_new$. Note that $B = A^{-1}$.
 
-
-So the construction with the lowest norm in our new basis will have the lowest norm outside of it as well. Since $\hat{H}_k$ is symmetric, we can define it in our new basis in the general form:
+Since $\hat{H}_k$ is symmetric, we can define it in our new basis in the general form:
 
 <div class="math">
 
@@ -666,7 +665,7 @@ $$
 
 </div>
 
-In other words if we want to apply the function represented by $M$ (which is defined in basis $A$) to vectors in basis $B$, simply transform those vectors into basis $A$, apply $M$, then transform them back; we construct $[M]_B$ by composing the functions which do so. In general, a change-of-basis matrix $\underset{B \leftarrow A}{P}$ is constructed by taking the basis vectors of the source vector space - $A$ - and replacing them with their respective [coordinate vectors](https://en.wikipedia.org/wiki/Coordinate_vector) in the target vector space. Let $J = [j_1, j_2, \cdot , j_n]$ be a matrix whose columns are the basis vectors of $\mathcal J$. The columns of $J$ are already described in the standard basis $\mathcal E$, which means 
+In other words if we want to apply the function represented by $M$ (which is defined in basis $A$) to vectors in basis $B$, simply transform those vectors into basis $A$, apply $M$, then transform them back; we construct $[M]_B$ by composing the functions which do so. In general, a change-of-basis matrix $\underset{B \leftarrow A}{P}$ is constructed by taking the basis vectors of the source vector space - $A$ - and replacing them with their respective [coordinate vectors](https://en.wikipedia.org/wiki/Coordinate_vector) in the target vector space. Let $J = [j_1, j_2, \cdot , j_n]$ be a matrix whose columns are the basis vectors of $\mathcal J$. Note that $J$ is an orthogonal matrix - each column has a norm of $1$ and is orthogonal to each other column. The columns of $J$ are already described in the standard basis $\mathcal E$, which means 
 
 <div class="math">
 
@@ -682,7 +681,7 @@ $$
 
 </div>
 
-Because $J$ is an orthogonal matrix - composed of orthogonal vectors each with a norm of 1 - the change of basis does not affect the Frobenius norm.
+Because $J$ is an orthogonal matrix the change of basis does not affect the Frobenius norm.
 
 <div class="math">
 
@@ -691,6 +690,8 @@ $$
 $$
 
 </div>
+
+So the construction with the lowest norm in our new basis will have the lowest norm in the standard basis as well. 
 
 So changing the basis between $\mathcal J$ and the standard basis won't affect our norms. If we prove our construction has the smallest norm in basis $\mathcal J$, then that proves it has the smallest norm in the standard basis $\mathcal E$
 
@@ -897,7 +898,7 @@ $$
 
 </div>
 
-When we use the first construction, the norm of the difference between our candidate $\hat{H}$ and $\hat{H}_{k+1}$
+The norm of the difference between our first consturction and $\hat{H}_{k}$ is
 
 
 <div class="math">
