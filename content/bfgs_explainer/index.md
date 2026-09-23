@@ -1040,11 +1040,13 @@ Where $x^*$ is the true function minimum. Contrast this with simple gradient des
 <div class="math">
 
 $$
-\lim _{k\rightarrow \infty} \frac{x_{k+1} - x^*}{x_k - x^*} = c
+\begin{array}{lr}
+\lim _{k\rightarrow \infty} \frac{x_{k+1} - x^*}{x_k - x^*} = c ,& c \in (0, 1)
+\end{array}
 $$
 
 </div>
 
-The ratio of the distance to the minimum on successive steps converges to some constant $c$, but never all the way to zero; each step gets us only a fixed portion of the remaining distance, no matter how many steps we take.
+The ratio of the distance to the minimum on successive steps converges to some constant $c$ between $0$ and $1$, but never all the way to zero; each step gets us only a fixed portion of the remaining distance, no matter how many steps we take.
 
 Second order algorithms like BFGS are king when it comes to optimizations close to the function minimum. Hm... maybe one could start training with a cheap first order algorithm, and then switch to a more computationally expensive second order algorithm for fine tuning? But that - and a full explanation of BFGS's successor, L-BFGS - will be discussions for another day!
