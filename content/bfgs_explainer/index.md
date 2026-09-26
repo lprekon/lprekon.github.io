@@ -234,7 +234,7 @@ In order to measure the difference, we might go with a simple Frobenius norm
 <div class="math">
 
 $$
-\lVert M \rVert _F = \sqrt{\sum_i \sum_{\mathcal J} m_{ij}^2}
+\lVert M \rVert _F = \sqrt{\sum_i \sum_j m_{ij}^2}
 $$
 
 </div>
