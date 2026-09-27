@@ -5,25 +5,25 @@ title = 'BFGS Explained'
 summary = "An intuitive walkthrough and proof of the BFGS optimization algorithm"  
 +++
 
-Machine learning is, at its core, the practice of iteratively minimizing a loss function. For some mathematical model and its set of weights, and some loss function measuring how wrong the model currently is, repeatedly adjust the weights until the loss function is as small as you can get it. For most machine learning endeavors, the algorithm by which one repeatedly tweaks their weights is some form of [gradient descent](https://en.wikipedia.org/wiki/Gradient_descent): pick a loss function that's differentiable, calculate its derivative with respect to each weight to determine how to tweak them, and repeat.
+Machine learning is, at its core, the practice of iteratively minimizing a loss function. For some mathematical model and its set of weights, and some loss function measuring how wrong the model currently is, one repeatedly adjusts the weights until the loss function is as small as one can get it. For most machine learning endeavors, the algorithm by which one repeatedly tweaks their weights is some form of [gradient descent](https://en.wikipedia.org/wiki/Gradient_descent): pick a loss function that's differentiable, calculate its derivative with respect to each weight to determine how to tweak them, and repeat.
 
 Gradient descent is a first order minimization algorithm - it relies on the first derivative of the function we're trying to minimize.
 
-There also exist second order algorithms, which incorporate curvature information - the second derivative of the loss function - to accelerate the search. The most straightforward second-order algorithm is Newtonian Optimization. There are also a whole host of quasi-Newtonian algorithms which approximate Newtonian optimization, seeking similar performance at a fraction of the computational cost.
+There also exist second order algorithms, which incorporate curvature information - the second derivative of the loss function - to accelerate the search. The most straightforward second order algorithm is Newtonian Optimization. There are also a whole host of quasi-Newtonian algorithms which approximate Newtonian optimization, seeking similar performance at a fraction of the computational cost.
 
 Today we're going to talk about a particular quasi-Newtonian algorithm called BFGS, named for the four mathematicians who invented it.
 
 While there are [plenty](https://en.wikipedia.org/wiki/Broyden–Fletcher–Goldfarb–Shanno_algorithm#Algorithm) of [places](https://machinelearningmastery.com/bfgs-optimization-in-python/) on [the internet](https://www.cs.purdue.edu/homes/jhonorio/16spring-cs52000-quasinewton.pdf) that will tell you *about* the BFGS algorithm, none (in my opinion) do an adequate job explaining where it comes from. The algorithm involves some fairly arcane-looking linear algebra, and it is not immediately clear how that math achieves its stated purpose. Why and how does this algorithm actually *work*?
 
-This article will explain the intuition behind second-order optimization, present the BFGS algorithm, and then provide a derivation of and proof for the algorithm, showing that it is in fact optimal (given certain assumptions). A later article will continue the discussion to L-BFGS, a successor algorithm built on BFGS and which is more common in practice today.
+This article will explain the intuition behind second order optimization, present the BFGS algorithm, and then provide a derivation of and proof for the algorithm, showing that it is in fact optimal (given certain assumptions). A later article will continue the discussion to L-BFGS, a successor algorithm built on BFGS and which is more common in practice today.
 
 Note: this article assumes familiarity with linear algebra concepts like matrix multiplication, transposition, and symmetry.
 
 ## Primer: Newtonian optimization
 
 Newtonian optimization rests on two ideas: 
-1) At any minimum of a function, the function's derivative at that point must be zero. This should be obvious - if the derivative was not 0, then there exists a direction in which we can move and find a smaller function value.
-2) The function to minimize is quadratic - i.e. it is twice-differentiable and has a constant second derivative[^1]
+1) At any minimum of a function, the function's derivative at that point must be zero. This should be obvious - if the derivative were not 0, then there exists a direction in which we can move and find a smaller function value.
+2) The function to minimize is quadratic - i.e. it is twice-differentiable and has a constant second derivative[^1].
 
 
 [^1]: Newtonian optimization can actually work on functions where this isn't strictly true, but it's a critical assumption for the algorithm
@@ -32,20 +32,20 @@ Let's examine this simple quadratic function, along with its first and second de
 
 {{< media src="generated_images/simple_quadratic.png" alt="quadratic function" themed="true">}}
 
-Pretend we don't know the true shape of $f(x)$; we have evaluated $f$ at the red dot ($x = 3.5$)and have calculated the value of its first and second derivatives at that point. Our goal is to find the minimum of the function, shown with the orange line. We learn that the derivative at this point is positive, meaning the function minimum must be to the left, at a lower value of $x$. Under a first-order optimization algorithm like gradient descent, this is all the information we could glean; our next step would be to reduce $x$ a small amount and repeat. 
+Pretend we don't know the true shape of $f(x)$; we have evaluated $f$ at the red dot ($x = 3.5$) and have calculated the value of its first and second derivatives at that point. Our goal is to find the minimum of the function, shown with the orange line. We learn that the derivative at this point is positive, meaning the function minimum must be to the left, at a lower value of $x$. Under a first order optimization algorithm like gradient descent, this is all the information we could glean; our next step would be to reduce $x$ a small amount and repeat. 
 
 But let us now *assume* the true function we're trying to minimize is quadratic (still pretending like we can't see the blue lines). In that case, the first derivative must be linear, and its slope is the value of the second derivative. Then we solve a simple $y = mx + b$ equation to find where the first derivative is zero, and we know the function minimum. Indeed we can see that the minimum of $f(x)$ is at the root of $f'$.
 
 
-Newtonian optimization uses the curvature of the function to estimate where the minimum *ought* to be, assuming the function is quadratic. Even if it's not a perfect bowl, we can still sometimes find the minimum quickly. Let's see what that looks like in practice.
+Newtonian optimization uses the curvature of the function to estimate where the minimum *ought* to be, assuming the function is quadratic. Even if it's not a perfect bowl, we can still sometimes find the minimum quickly.
 
-Here's a visual representation of how Newtonian optimization finds the minimum of a function compared to the more common gradient descent. The function here is the [Rosenbrock function](https://en.wikipedia.org/wiki/Rosenbrock_function).
+Here's a visual representation of how that works in practice, alongside the more common gradient descent. The function here is the [Rosenbrock function](https://en.wikipedia.org/wiki/Rosenbrock_function).
 
 {{< media src="media/videos/bfgs_explainer/1080p60/GradientVsNewtonian.mp4" caption="$f(x) = (1-x_0)^2 + 50(x_1-x_0^2)^2$" >}}
 
-Using gradient descent to find the minimum requires walking down the canyon walls - initially moving *away* from the minimum - before tracing a path along the valley floor. In this demonstration, after 12,000 steps of Gradient descent we're still only approaching the minimum, while Newtonian optimization gets there exactly in 5 steps.
+Using gradient descent to find the minimum requires walking down the canyon walls - initially moving *away* from the minimum - before tracing a path along the valley floor. In this demonstration, after 12,000 steps of radient descent we're still only approaching the minimum, while Newtonian optimization gets to the minimum exactly in only 5 steps.
 
-Despite this incredible feat, pure Newtonian optimization has a couple drawbacks, which is why it's almost never used in practice. The first is its sensitivity to the curvature of the function to be minimized. If the function is not well approximated by a quadratic curve, then we can get quite suboptimal results.
+Despite this incredible feat, pure Newtonian optimization has a couple of drawbacks, which is why it's almost never used in practice. The first is its sensitivity to the curvature of the function to be minimized. If the function is not well approximated by a quadratic curve, then we can get quite suboptimal results.
 
 {{< media src="media/videos/bfgs_explainer/1080p60/SinusoidalValley.mp4" caption="$f(x) = \sin(x_0) + \sin(x_1)$" >}}
 
@@ -53,7 +53,7 @@ Here, gradient descent is able to find the minimum but Newtonian optimization qu
 
 Newtonian optimization has one additional drawback, which will be present no matter how close the true function is to a quadratic, and which motivates the creation of BFGS. To see it, let's walk through the math.
 
-In order to derive the algorithm for Newtonian optimization, we start by approximating the true function with a second-order [Taylor Expansion](https://en.wikipedia.org/wiki/Taylor_series)[^2]:
+In order to derive the algorithm for Newtonian optimization, we start by approximating the true function with a second order [Taylor Expansion](https://en.wikipedia.org/wiki/Taylor_series)[^2]:
 
 <div class="math">
 
@@ -80,9 +80,9 @@ $$
 
 </div>
 
-So, starting from evaluating $f$ at some point $x$, the minimum of $f$ is at $x_{\min} = x + s$, where $s$ is our step size of $-\frac{f'(x_0)}{f''(x_0)}$. In other words $\operatorname{argmin}_x f(x) = x_0 - \frac{f'(x_0)}{f''(x_0)}$.
+So, starting from evaluating $f$ at some point $x_0$, the minimum of $f$ is at $x_{\min} = x_0 + s$, where $s$ is our step size of $-\frac{f'(x_0)}{f''(x_0)}$. In other words $\operatorname{argmin}_x f(x) = x_0 - \frac{f'(x_0)}{f''(x_0)}$.
 
-let's generalize this to functions of multiple variables. $f'(x)$ becomes the [Jacobian](https://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant) $\nabla f$, a vector of partial first derivatives. $f''(x)$ becomes the [Hessian](https://en.wikipedia.org/wiki/Hessian_matrix) $B$, a matrix of partial second derivatives.
+Let's generalize this to functions of multiple variables. $f'(x)$ becomes the [Jacobian](https://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant) $\nabla f$, a vector of partial first derivatives. $f''(x)$ becomes the [Hessian](https://en.wikipedia.org/wiki/Hessian_matrix) $B$, a matrix of partial second derivatives.
 
 Starting with our definitions
 <div class="math">
@@ -102,7 +102,7 @@ $$
 
 </div>
 
-Then our taylor expansion and subsequent root of the derivative become
+Then our Taylor expansion and subsequent root of the derivative become
 
 <div class="math">
 
@@ -125,7 +125,7 @@ And this brings us to the major problem with Newtonian optimization: that pesky 
 
 [^4]: A one-million-by-one-million square matrix takes $10\times10 ^{18}$ operations to invert. On a CPU running three billion operations per second, simply inverting the Hessian a single time would take about ten and a half years.
 
-As amazing as Newtonian optimization is, the computation required grows cubicly with the number of parameters. It is therefore impractical for all but the smallest problems.
+As amazing as Newtonian optimization is, the computation required grows cubically with the number of parameters. It is therefore impractical for all but the smallest problems.
 
 ## Enter: Broyden, Fletcher, Goldfarb, and Shanno
 
@@ -149,7 +149,7 @@ $$
 
 </div>
 
-After which we return to step 1 and repeat, now with a better understanding of the curvature of the function thanks to our updated $H$. 
+After which we return to step one and repeat, now with a better understanding of the curvature of the function thanks to our updated $H$. 
 
 If you think that update equation in step 5 fell from the sky and was bestowed upon us by aliens, you are not alone. 
 Let's explain that line search in step two, and then we'll get to the point of this article - deriving the update algorithm and proving that it is optimal.
@@ -158,7 +158,7 @@ Let's explain that line search in step two, and then we'll get to the point of t
 
 Step one of the algorithm gives us search direction $p_k$, but we don't necessarily want to step a full $\lvert p_k \rvert$. The only reason you'd be certain $s_k = p_k$ would be if A) $f$ was in fact purely quadratic and B) $H$ was the true inverse Hessian. Given that we want to apply this algorithm to functions besides quadratic functions, and that $H$ is merely an approximation of the inverse Hessian which we're building over time, neither A nor B hold. We need a way to more carefully pick how far in the direction $p_k$ we want to go. 
 
-In order to figure out how far in the direction $p_k$ to travel between steps $k$ and $k+1$, we conduct a line search to satisfy [Wolfe conditions](https://en.wikipedia.org/wiki/Wolfe_conditions). All that means is we pick some starting $\alpha _k$ (usually $\alpha _k = 1$), evaluate $f(x_k + \alpha _k p_k)$ and  $\nabla f(x_k + \alpha _k p_k)$, check them against certain conditions, and adjust $\alpha _k$ until our conditions are met. The two conditions we want satisfied are
+In order to figure out how far in the direction $p_k$ to travel between steps $k$ and $k+1$, we conduct a line search to satisfy [Wolfe conditions](https://en.wikipedia.org/wiki/Wolfe_conditions). All that means is we pick some starting $\alpha _k$ (usually $\alpha _k = 1$), evaluate $f(x_k + \alpha _k p_k)$ and $\nabla f(x_k + \alpha _k p_k)$, check them against certain conditions, and adjust $\alpha _k$ until our conditions are met. The two conditions we want satisfied are
 
 <div class = "math">
 
@@ -184,7 +184,7 @@ The second condition keeps us from picking an $\alpha _k$ so small that we go no
 
 Now, as to how one actually *finds* an appropriate value for $\alpha _k$, there are [a number of methods](https://en.wikipedia.org/wiki/Line_search). In fact, an astute reader may have noticed that this is actually an optimization problem itself. If you really wanted to, you could technically recurse and conduct a BFGS-based search for the minimum of the one dimensional function $g(\alpha) = f(x_k + \alpha p_k)$! This would be quite silly though, as you'd then need to do a line search in your new BFGS algorithm, recursing infinitely. 
 
-In practice, the line search to satisfy wolfe conditions is usually conducted using a bracketed line search. Essentially, we find a range that's guaranteed to contain a value for $\alpha$ that satisfies both conditions, and then conduct something like a binary search within that range until we find an $\alpha$ that's "good enough". We don't want to waste time finding the *optimal* $\alpha$. Once we find an $\alpha$ which satisfies our conditions, we're better off spending our compute resources finding the next direction of search in our overall algorithm than refining $\alpha$. Good enough is good enough.
+In practice, the line search to satisfy Wolfe conditions is usually conducted using a bracketed line search. Essentially, we find a range that's guaranteed to contain a value for $\alpha$ that satisfies both conditions, and then conduct something like a binary search within that range until we find an $\alpha$ that's "good enough". We don't want to waste time finding the *optimal* $\alpha$. Once we find an $\alpha$ which satisfies our conditions, we're better off spending our compute resources finding the next direction of search in our overall algorithm than refining $\alpha$. Good enough is good enough.
 
 The exact line search algorithm is a bit complicated and beyond the scope of this article. If you're interested, check out [PyTorch's implementation](https://github.com/pytorch/pytorch/blob/cf30153c4c131c8164ee7798e5022d810682e2cb/torch/optim/lbfgs.py#L40).
 
@@ -193,7 +193,7 @@ The exact line search algorithm is a bit complicated and beyond the scope of thi
 
 Now for the headliner: how does one actually arrive at that long update algorithm? What is it doing that results in $H_{k+1}$ being a better approximation of the inverse Hessian than $H_k$?
 
-We start from the acknowledgement that $H_k$ is an imperfect approximation of the true inverse Hessian of $f$[^6]. The inverted Hessian *ought* to explain the change in gradient observed between positions $x_k$ and $x_{k+1}$ satisfying an inverted [Secant Equation](https://en.wikipedia.org/wiki/Secant_method)
+We start from the acknowledgement that $H_k$ is an imperfect approximation of the true inverse Hessian of $f$[^6]. The inverse Hessian *ought* to explain the change in gradient observed between positions $x_k$ and $x_{k+1}$ satisfying an inverted [Secant Equation](https://en.wikipedia.org/wiki/Secant_method)
 
 [^6]: And unless $f$ was in fact quadratic, it doesn't even have a *single* true Hessian, but that's beside the point
 
@@ -219,7 +219,7 @@ $H_{k+1} y_k = s_k$
 
 </div>
 
-This forms a simple [system of linear equations](https://en.wikipedia.org/wiki/System_of_linear_equations) that ought to be familiar to most folks who've studied linear algebra [^7]. We run into a wrinkle, however: our system is horribly underspecified. We have a system of $n$ equations, but $  \frac{n(n+1)}{2}$ free variables[^8]. For $n >1$ there are an infinite number of possible new $H$s that could satisfy our secant equation[^9]. 
+This forms a simple [system of linear equations](https://en.wikipedia.org/wiki/System_of_linear_equations) that ought to be familiar to most folks who've studied linear algebra[^7]. We run into a wrinkle, however: our system is horribly underspecified. We have a system of $n$ equations, but $\frac{n(n+1)}{2}$ free variables[^8]. For $n >1$ there are an infinite number of possible new $H$s that could satisfy our secant equation[^9]. 
 
 [^7]: if it's not, see [Gaussian elimination](https://en.wikipedia.org/wiki/Gaussian_elimination) for an explanation of how systems of equations can be viewed as matrix algebra, and vice versa
 
@@ -227,7 +227,7 @@ This forms a simple [system of linear equations](https://en.wikipedia.org/wiki/S
 
 [^9]: And if $n = 1$ we might as well use a simpler algorithm
 
-Of those infinite $H$s, it is hopefully uncontroversial that we want the one that is closest to $H_k$. After all, our estimate of the inverted Hessian builds up curvature information as we iterate, and we'd like to preserve as much of that information as possible. The candidate $H$ we want for $H_{k+1}$ is the matrix that changes *as little as possible* from $H_k$ while still satisfying our criteria.
+Of those infinite $H$s, it is hopefully uncontroversial that we want the one that is closest to $H_k$. After all, our estimate of the inverse Hessian builds up curvature information as we iterate, and we'd like to preserve as much of that information as possible. The candidate $H$ we want for $H_{k+1}$ is the matrix that changes *as little as possible* from $H_k$ while still satisfying our criteria.
 
 In order to measure the difference, we might go with a simple Frobenius norm
 
@@ -239,7 +239,7 @@ $$
 
 </div>
 
-However the Frobenius norm is sensitive to the elements of our input $x$ being measured in different magnitudes; If, say, $x_0$ was in meters but $x_1$ was in centimeters, a Frobenius norm might over-index on keeping the higher absolute value elements similar at the expense of other elements. So rather than a Frobenius norm, we'll use a weighted Frobenius norm.
+However the Frobenius norm is sensitive to the elements of our input $x$ being measured in different magnitudes; If say, $x_0$ was in meters but $x_1$ was in centimeters, a Frobenius norm might over-index on keeping the higher absolute value elements similar at the expense of other elements. So rather than a Frobenius norm, we'll use a weighted Frobenius norm.
 
 Let $W$ be a matrix of weights. Then the weighted Frobenius norm is
 
@@ -379,7 +379,7 @@ $$
 
 </div>
 
-So we're looking for a matrix $\hat{H}$ which maps $\hat{y}$ to itself, still mindful of staying as close to $\hat{H_k}$ as possible (and always symmetric). Our method will be thus: modify $\hat{H}_k$ in order to cancel its current action on $\hat{y}$, then construct and add in a matrix that maps $\hat{y}$ as we desire [^12].
+So we're looking for a matrix $\hat{H}$ which maps $\hat{y}$ to itself, still mindful of staying as close to $\hat{H}_k$ as possible (and always symmetric). Our method will be thus: modify $\hat{H}_k$ in order to cancel its current action on $\hat{y}$, then construct and add in a matrix that maps $\hat{y}$ as we desire [^12].
 
 [^12]: If this also seems plucked from the sky, bear with me. It will all work out
 
@@ -410,7 +410,7 @@ $$
 
 </div>
 
-if we solve for $z$, we get
+If we solve for $z$, we get
 
 <div class="math">
 
@@ -437,7 +437,7 @@ $$
 
 {{< media src="generated_images/project_onto_y_p2.png" alt="Projecting the vector x onto both y and its complement" themed="true">}}
 
-Since $\hat{P}$ projects onto a subspace orthogonal to $\operatorname{Span}\{\hat{y}\}$, $\hat{P}\hat{y} = 0$. We now have the mechanism to cancel action on $\hat{y}$. Our matrix for part 2 – something *like* $\hat{H}_k$ that maps $\hat{y}$ to 0 – will be
+Since $\hat{P}$ projects onto a subspace orthogonal to $\operatorname{Span}\{\hat{y}\}$, $\hat{P}\hat{y} = 0$. We now have the mechanism to cancel action on $\hat{y}$. The first part of our candidate $\hat{H}$ – something *like* $\hat{H}_k$ that maps $\hat{y}$ to 0 – will be
 
 <div class="math">
 
@@ -472,7 +472,7 @@ In our changed variable, our update formula is
 <div class="math">
 
 $$
-\hat{H}_{k+1} =  \hat{P}\hat{H}_k\hat{P} + \hat{Q}
+\hat{H}_{k+1} = \hat{P}\hat{H}_k\hat{P} + \hat{Q}
 $$
 
 </div>
@@ -484,9 +484,9 @@ The term on the left is a matrix close to $\hat{H}_k$, modified to map $\hat{y}$
 $$
 \def\arraystretch{1.5}
 \begin{array}{ll}
-\hat{H}_{k+1}\hat{y} &= (\hat{Q} + \hat{P}\hat{H}_k\hat{P})\hat{y} \\
-&= \hat{Q}\hat{y} +  \hat{P}\hat{H}_k\hat{P}\hat{y} \\
-&= \hat{y} + 0 \\
+\hat{H}_{k+1}\hat{y} &= ( \hat{P}\hat{H}_k\hat{P} + \hat{Q})\hat{y} \\
+&= \hat{P}\hat{H}_k\hat{P}\hat{y} + \hat{Q}\hat{y}  \\
+&= 0 + \hat{y} \\
 &= \hat{y}
 \end{array}
 $$
@@ -539,7 +539,7 @@ $$
 
 </div>
 
-now we'll change back the denominator
+Now we'll work the denominator
 
 <div class="math">
 
@@ -571,7 +571,7 @@ $$
 
 </div>
 
-Now, let's change the variable back on the first term of the sum. Starting from the right-hand side of the sandwhiched multiplication
+Next up let's get the first piece of the sum back in terms of our original variable. Starting from the right-hand side of the sandwiched multiplication
 
 <div class="math">
 
@@ -601,7 +601,7 @@ $$
 
 </div>
 
-This works out just like 4.4.7, but since the  sides of the $W^{\frac{1}{2}}$ and $W^{-\frac{1}{2}}$ switched, we switched which $\hat{y}$ turned into $s_k$ and which $\hat{y}$ turned into $y_k$.
+This works out just like 4.4.7, but since the sides of the $W^{\frac{1}{2}}$ and $W^{-\frac{1}{2}}$ switched, we switched which $\hat{y}$ turned into $s_k$ and which $\hat{y}$ turned into $y_k$.
 
 This means the update formula that gives a new estimated inverse Hessian, incorporating the new curvature information while staying as close to the old estimate as possible is
 
@@ -624,7 +624,7 @@ We have shown the full BFGS algorithm. We have shown how one may derive the BFGS
 
 [^13]: Recall that here, "best" means the smallest weighted Frobenius norm of $H_{k+1} - H_k$, which is equivalent to the smallest un-weighted Frobenius norm of $\hat{H}_{k+1} - \hat{H}_k$.
 
-We start by comparing how the choice of $\hat{Q}$ over $I$ affects the norm of the difference between $H_{k+1}$ and $H_k$. The difference between $\hat{Q}$ and $I$'s respective effects on the norm is easiest to see if we conduct a [change-of-basis](https://en.wikipedia.org/wiki/Change_of_basis)[^14] to a new vector space. Let $\mathcal J$ be our new vector space with orthonormal basis $\{j_1, j_2, \ldots, j_n\}$. We define $j_1 = \frac{\hat{y}}{\lVert\hat{y}\rVert}$, and $\{j_2, \cdots , j_n\}$ as orthonormal vectors spanning the remainder of $\mathcal J$.
+We start by comparing how the choice of $\hat{Q}$ over $I$ affects the norm of the difference between $H_{k+1}$ and $H_k$. The difference between $\hat{Q}$ and $I$'s respective effects on the norm is easiest to see if we conduct a [change-of-basis](https://en.wikipedia.org/wiki/Change_of_basis)[^14] to a new basis. Let $\mathcal J$ be our new basis with orthonormal basis $\{j_1, j_2, \ldots, j_n\}$. We define $j_1 = \frac{\hat{y}}{\lVert\hat{y}\rVert}$, and $\{j_2, \cdots , j_n\}$ as orthonormal vectors spanning the remainder of $\mathcal J$.
 
 [^14]: In this article I'm using the notation from *Linear Algebra And It's Applications, 4th ed, by David C. Lay*, which is the inverse of Wikipedia's notation. In discussing changing the basis of a vector $x$ from an old basis to a new basis, Wikipedia uses the term "change-of-basis" matrix to refer to a matrix $A$ s.t $x_{old} = Ax_{new}$. Under the notation regime used in this article, the matrix described by Wikipedia would be called the change-of-coordinate matrix, and the change-of-basis matrix would be $B$ s.t $Bx_{old} = x_{new}$. Note that $B = A^{-1}$.
 
@@ -642,7 +642,7 @@ $$
 
 </div>
 
-Where $a$ is a scalar, $r$ is a vector of length $n-1$, and $C$ is an $(n-1)\times(n-1)$ symmetrical matrix[^15]. Next let's look at $\hat{Q}$ in our new basis. For any matrix $M$ which maps between vectors in some vector space $A$, the formula to change its basis to vector space $B$ is as follows
+Where $a$ is a scalar, $r$ is a vector of length $n-1$, and $C$ is an $(n-1)\times(n-1)$ symmetrical matrix[^15]. Next let's look at $\hat{Q}$ in our new basis. For any matrix $M$ which maps between vectors in some vector space $A$, the formula to change its basis to basis $B$ is as follows
 
 [^15]: This representation actually has nothing to do with the change-of-basis. We can always write out a symmetrical matrix this way. We just haven't needed to before now
 
@@ -665,7 +665,7 @@ $$
 
 </div>
 
-In other words if we want to apply the function represented by $M$ (which is defined in basis $A$) to vectors in basis $B$, simply transform those vectors into basis $A$, apply $M$, then transform them back; we construct $[M]_B$ by composing the functions which do so. In general, a change-of-basis matrix $\underset{B \leftarrow A}{P}$ is constructed by taking the basis vectors of the source vector space - $A$ - and replacing them with their respective [coordinate vectors](https://en.wikipedia.org/wiki/Coordinate_vector) in the target vector space. Let $J = [j_1, j_2, \cdot , j_n]$ be a matrix whose columns are the basis vectors of $\mathcal J$. Note that $J$ is an orthogonal matrix - each column has a norm of $1$ and is orthogonal to each other column. The columns of $J$ are already described in the standard basis $\mathcal E$, which means 
+In other words if we want to apply the function represented by $M$ (which is defined in basis $A$) to vectors in basis $B$, simply transform those vectors into basis $A$, apply $M$, then transform them back; we construct $[M]_B$ by composing the functions which do so. In general, a change-of-basis matrix $\underset{B \leftarrow A}{P}$ is constructed by taking the basis vectors of the source vector space - $A$ - and replacing them with their respective [coordinate vectors](https://en.wikipedia.org/wiki/Coordinate_vector) in the target vector space. Let $J = [j_1, j_2, \cdots , j_n]$ be a matrix whose columns are the basis vectors of $\mathcal J$. Note that $J$ is an orthogonal matrix - each column has a norm of $1$ and is orthogonal to each other column. The columns of $J$ are already described in the standard basis $\mathcal E$, which means 
 
 <div class="math">
 
@@ -691,9 +691,7 @@ $$
 
 </div>
 
-So the construction with the lowest norm in our new basis will have the lowest norm in the standard basis as well. 
-
-So changing the basis between $\mathcal J$ and the standard basis won't affect our norms. If we prove our construction has the smallest norm in basis $\mathcal J$, then that proves it has the smallest norm in the standard basis $\mathcal E$
+If we prove our construction has the smallest norm in basis $\mathcal J$, then that proves it has the smallest norm in the standard basis $\mathcal E$
 
 Now let us construct $[\hat{Q}]_{\mathcal J}$
 
@@ -713,7 +711,7 @@ $$
 
 </div>
 
-Now remember that we defined $J$ as $j_1 = \frac{\hat{y}}{\lVert\hat{y}\rVert}$, and the remaining columns $\{j_2, \dotsc, j_n\}$ are orthogonal to the first column, which means they're orthogonal to $\hat{y}$.
+Now remember that we defined $J$ as having the a first column $j_1 = \frac{\hat{y}}{\lVert\hat{y}\rVert}$, and the remaining columns $\{j_2, \dotsc, j_n\}$ as orthogonal to the first column, which means they're orthogonal to $\hat{y}$.
 
 <div class="math">
 
@@ -724,7 +722,7 @@ J^{\top}\hat{y} &=
 \begin{bmatrix}
 j_{1,1} & j_{1,2} & \dotsc & j_{1,n} \\
 j_{2,1} & j_{2,2} & \dotsc & j_{2,n}\\
-\vdots & & \ddots  & \vdots\\
+\vdots & \vdots & \ddots & \vdots\\
 j_{n,1} & j_{n,2} & \dotsc & j_{n,n}
 \end{bmatrix}
 \begin{bmatrix}
@@ -858,7 +856,7 @@ $$
 
 </div>
 
-Now let's start putting all the pieces together and see how they affect the norm. As we do, we'll provide the pieces to prove our entire construction is optimal. Construction 1 using $\hat{Q}$ to send $\hat{y}$ to itself, and construction 2 using $I$ to do so
+Now let's start putting all the pieces together and see how they affect the norm. As we do, we'll provide the pieces to prove our entire construction is optimal: construction 1 using $\hat{Q}$ to send $\hat{y}$ to itself, and construction 2 using $I$ to do so
 
 <div class="math">
 
@@ -1016,11 +1014,11 @@ How does BFGS do at our Rosenbrock canyon?
 
 {{< media src="media/videos/bfgs_explainer/1080p60/BfgsRosenbrok.mp4" caption="BFGS $f(x) = (1-x_0)^2 + 50(x_1-x_0^2)^2$" >}}
 
-It certainly appears to take more steps than Newtonian optimization. One might wonder "if BFGS is learning the inverted Hessian, and updating that approximation with more and more information at each step, why does it crawl down the canyon, taking little steps each time? Why doesn't it eventually learn and take bigger steps?"
+It certainly appears to take more steps than Newtonian optimization. One might wonder "if BFGS is learning the inverse Hessian, and updating that approximation with more and more information at each step, why does it crawl down the canyon, taking little steps each time? Why doesn't it eventually learn and take bigger steps?"
 
-The answer is that this function has no single true, Hessian, and thus no single inverse Hessian. As we walk along the canyon floor the approximate inverse Hessian is continuously being updated, but the true Hessian is also changing as we go, preventing us from ever learning "it" (because there is no single "it"), capping our step size.
+The answer is that this function has no single true Hessian, and thus no single inverse Hessian. As we walk along the canyon floor the approximate inverse Hessian is continuously being updated, but the true Hessian is also changing as we go, preventing us from ever learning "it" (because there is no single "it"), capping our step size.
 
-Before one writes this exercise off and dismisses BFGS because it doesn't go any faster than gradient descent seemed to, it's worth noting that these animations are not perfectly to time-scale. When we watched gradient descent roll down the Rosenbrock canyon or roll into the sinusoid valley, we saw it move at constant speed; in reality, the first several steps are relatively large, and the vast majority of steps - the vast majority of iterations of that algorithm - occur right at the end. Take a look at this graph of training loss over amount of data trained on from [the LLaMa paper](https://arxiv.org/abs/2302.13971)
+Before one writes this exercise off and dismisses BFGS because it doesn't go any faster than gradient descent seemed to, it's worth noting that these animations are not perfectly to time-scale. When we watched gradient descent roll down the Rosenbrock canyon or roll into the sinusoid valley, we saw it move at constant speed; in reality, the first several steps are relatively large, and the vast majority of steps - the vast majority of iterations of that algorithm - occur right at the end. Take a look at this graph of training loss over amount of data trained on from [the LLaMA paper](https://arxiv.org/abs/2302.13971)
 
 {{< media src="images/llama-training-curves.png" caption="arXiv:2302.13971, Figure 1">}}
 
