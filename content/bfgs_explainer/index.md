@@ -665,7 +665,7 @@ $$
 
 </div>
 
-In other words if we want to apply the function represented by $M$ (which is defined in basis $A$) to vectors in basis $B$, simply transform those vectors into basis $A$, apply $M$, then transform them back; we construct $[M]_B$ by composing the functions which do so. In general, a change-of-basis matrix $\underset{B \leftarrow A}{P}$ is constructed by taking the basis vectors of the source vector space - $A$ - and replacing them with their respective [coordinate vectors](https://en.wikipedia.org/wiki/Coordinate_vector) in the target vector space. Let $J = [j_1, j_2, \cdots , j_n]$ be a matrix whose columns are the basis vectors of $\mathcal J$. Note that $J$ is an orthogonal matrix - each column has a norm of $1$ and is orthogonal to each other column. The columns of $J$ are already described in the standard basis $\mathcal E$, which means 
+In other words if we want to apply the function represented by $M$ (which is defined in basis $A$) to vectors in basis $B$, simply transform those vectors into basis $A$, apply $M$, then transform them back; we construct $[M]_B$ by composing the functions which do so. In general, a change-of-basis matrix $\underset{B \leftarrow A}{P}$ is constructed by taking the basis vectors of the source basis - $A$ - and replacing them with their respective [coordinate vectors](https://en.wikipedia.org/wiki/Coordinate_vector) in the target basis. Let $J = [j_1, j_2, \cdots , j_n]$ be a matrix whose columns are the basis vectors of $\mathcal J$. Note that $J$ is an orthogonal matrix - each column has a norm of $1$ and is orthogonal to each other column. The columns of $J$ are already described in the standard basis $\mathcal E$, which means 
 
 <div class="math">
 
@@ -786,7 +786,7 @@ $$
 
 </div>
 
-Which should be obvious in hindsight. $\hat{Q}$ was a matrix which projected onto $\operatorname{Span}\{\hat{y}\}$. Now that we're in a vector space where the first basis vector is in the direction of $\hat{y}$, $[\hat{Q}]_{\mathcal J}$ is a matrix which extracts the first element of any vector on which it acts, and zeroes out all other elements. 
+Which should be obvious in hindsight. $\hat{Q}$ was a matrix which projected onto $\operatorname{Span}\{\hat{y}\}$. Now that we're in a basis where the first basis vector is in the direction of $\hat{y}$, $[\hat{Q}]_{\mathcal J}$ is a matrix which extracts the first element of any vector on which it acts, and zeroes out all other elements. 
 
 Next up, the definition of $\hat{P}$ in our new basis, which was the matrix which projected onto the orthogonal complement of $\operatorname{Span}\{\hat{y}\}$[^16]
 
