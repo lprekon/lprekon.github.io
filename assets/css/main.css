@@ -18,12 +18,28 @@
   font-size: 16px;
 }
 
-@media (min-width: 768px)  { :root { font-size: 17px; } }
-@media (min-width: 1200px) { :root { font-size: 18px; } }
-@media (min-width: 1600px) { :root { font-size: 22px; } }
-
-@media (prefers-color-scheme: dark) {
+@media (min-width: 768px) {
   :root {
+    font-size: 17px;
+  }
+}
+
+@media (min-width: 1200px) {
+  :root {
+    font-size: 18px;
+  }
+}
+
+@media (min-width: 1600px) {
+  :root {
+    font-size: 22px;
+  }
+}
+
+/* Dark palette: applied when the OS prefers dark (unless the reader has
+   explicitly chosen light), or when the reader has explicitly chosen dark. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
     --bg: #23201c;
     --text: #e4ddcf;
     --muted: #a99e8a;
@@ -34,7 +50,19 @@
   }
 }
 
-* { box-sizing: border-box; }
+:root[data-theme="dark"] {
+  --bg: #23201c;
+  --text: #e4ddcf;
+  --muted: #a99e8a;
+  --accent: #9cbf88;
+  --accent-hover: #b6d3a4;
+  --border: #3a352d;
+  --inline-code-bg: #2f2b24;
+}
+
+* {
+  box-sizing: border-box;
+}
 
 body {
   margin: 0;
@@ -50,7 +78,10 @@ a {
   text-decoration: underline;
   text-decoration-thickness: from-font;
 }
-a:hover { color: var(--accent-hover); }
+
+a:hover {
+  color: var(--accent-hover);
+}
 
 .site {
   max-width: 40rem;
@@ -73,8 +104,15 @@ a:hover { color: var(--accent-hover); }
   letter-spacing: -0.01em;
   margin: 0;
 }
-.site-title a { color: var(--text); text-decoration: none; }
-.site-title a:hover { color: var(--accent); }
+
+.site-title a {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.site-title a:hover {
+  color: var(--accent);
+}
 
 .site-tagline {
   color: var(--muted);
@@ -89,27 +127,67 @@ a:hover { color: var(--accent-hover); }
   justify-content: center;
   flex-wrap: wrap;
 }
+
 .site-nav a {
   color: var(--text);
   text-decoration: none;
 }
-.site-nav a:hover,
-.site-nav a.active { color: var(--accent); text-decoration: underline; }
 
-.content > * {
+.site-nav a:hover,
+.site-nav a.active {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.theme-toggle {
+  font: inherit;
+  line-height: 1;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.1em 0.55em;
+  cursor: pointer;
+}
+
+.theme-toggle:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.content {
+  counter-reset: h2sec h3sub eqnum;
+}
+
+.content h2 {
+  counter-increment: h2sec;
+  counter-reset: h3sub eqnum;
+}
+
+.content h3 {
+  counter-increment: h3sub;
+  counter-reset: eqnum;
+}
+
+.content>* {
   margin-left: auto;
   margin-right: auto;
   max-width: 40rem;
 }
 
-.content > .highlight {
+.content>.highlight {
   width: min(56rem, 92vw);
   max-width: none;
   margin-left: 50%;
   transform: translateX(-50%);
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   font-family: var(--font-heading);
   line-height: 1.25;
   margin-top: 2rem;
@@ -137,26 +215,80 @@ h1, h2, h3, h4, h5, h6 {
   font-size: 0.9rem;
   line-height: 1.4;
 }
+
 .toc-title {
   font-family: var(--font-heading);
   font-weight: 700;
   margin: 0 0 0.5rem;
 }
-.toc ul { list-style: none; margin: 0; padding-left: 1.2rem; }
-.toc #TableOfContents > ul { padding-left: 0; }
-.toc li { margin: 0.1rem 0; }
-.toc a { color: var(--text); text-decoration: underline; }
-.toc a:hover { color: var(--accent); }
 
-img { max-width: 100%; height: auto; }
+.toc ul {
+  list-style: none;
+  margin: 0;
+  padding-left: 1.2rem;
+}
 
-.content > p > img,
-.content > p:has(> img:only-child) {
+.toc #TableOfContents>ul {
+  padding-left: 0;
+}
+
+.toc li {
+  margin: 0.1rem 0;
+}
+
+.toc a {
+  color: var(--text);
+  text-decoration: underline;
+}
+
+.toc a:hover {
+  color: var(--accent);
+}
+
+img,
+video {
+  max-width: 100%;
+  height: auto;
+}
+
+.content>p>img,
+.content>p:has(> img:only-child),
+.content>video,
+.content>p:has(> video:only-child) {
   display: block;
   margin: 1.5rem auto;
 }
 
-.zoomable { cursor: zoom-in; }
+.zoomable {
+  cursor: zoom-in;
+}
+
+/* Theme-aware images: render both variants, show the one matching the active
+   theme. Mirrors the exact cascade used by the color variables above so it
+   respects both the OS preference and the manual three-way theme toggle. */
+.themed-dark {
+  display: none;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .themed-light {
+    display: none;
+  }
+  :root:not([data-theme="light"]) .themed-dark {
+    display: inline-block;
+  }
+}
+:root[data-theme="dark"] .themed-light {
+  display: none;
+}
+:root[data-theme="dark"] .themed-dark {
+  display: inline-block;
+}
+:root[data-theme="light"] .themed-light {
+  display: inline-block;
+}
+:root[data-theme="light"] .themed-dark {
+  display: none;
+}
 
 .lightbox {
   position: fixed;
@@ -171,7 +303,11 @@ img { max-width: 100%; height: auto; }
   opacity: 0;
   transition: opacity 0.15s ease;
 }
-.lightbox.is-open { opacity: 1; }
+
+.lightbox.is-open {
+  opacity: 1;
+}
+
 .lightbox img {
   max-width: 95%;
   max-height: 95%;
@@ -182,11 +318,46 @@ figure {
   margin: 2rem auto;
   text-align: center;
 }
+
 figure figcaption {
   color: var(--muted);
   font-size: 0.9rem;
   font-style: italic;
   margin-top: 0.5rem;
+}
+
+/* Captions below images and videos */
+.media-caption {
+  display: block;
+  max-width: 90%;
+  margin: 0.6rem auto 0;
+  text-align: center;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: var(--muted);
+}
+
+.math {
+  text-align: center;
+  font-size: 1.25rem;
+  margin: 2.5rem 0;
+  position: relative;
+  counter-increment: eqnum;
+  padding-inline-start: 2.5rem;
+}
+
+.math::after {
+  content: "(" counter(h2sec) "." counter(h3sub) "." counter(eqnum) ")";
+  position: absolute;
+  inset-inline-start: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  font-size: 1rem;
+}
+
+.katex-display {
+  margin: 2em 0;
 }
 
 blockquote {
@@ -200,7 +371,8 @@ code {
   font-family: var(--font-mono);
   font-size: 0.9em;
 }
-:not(pre) > code {
+
+:not(pre)>code {
   background-color: var(--inline-code-bg);
   padding: 0.1em 0.35em;
   border-radius: 0.25rem;
@@ -212,13 +384,18 @@ pre {
   border-radius: 0.4rem;
   line-height: 1.45;
 }
-pre code { font-size: 0.85em; }
+
+pre code {
+  font-size: 0.85em;
+}
 
 table {
   border-collapse: collapse;
   margin: 1.5rem auto;
 }
-th, td {
+
+th,
+td {
   padding: 0.4rem 0.6rem;
   border: 1px solid var(--border);
 }
@@ -229,16 +406,38 @@ hr {
   margin: 2.5rem 0;
 }
 
-.post-list { list-style: none; padding: 0; margin: 2rem 0 0; }
-.post-list li { margin-bottom: 1.75rem; }
+.post-list {
+  list-style: none;
+  padding: 0;
+  margin: 2rem 0 0;
+}
+
+.post-list li {
+  margin-bottom: 1.75rem;
+}
+
 .post-list h2 {
   font-size: 1.4rem;
   margin: 0 0 0.25rem;
 }
-.post-list h2 a { color: var(--text); text-decoration: none; }
-.post-list h2 a:hover { color: var(--accent); }
-.post-list .post-date { color: var(--muted); font-size: 0.85rem; }
-.post-list .post-summary { margin: 0.4rem 0 0; }
+
+.post-list h2 a {
+  color: var(--text);
+  text-decoration: none;
+}
+
+.post-list h2 a:hover {
+  color: var(--accent);
+}
+
+.post-list .post-date {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.post-list .post-summary {
+  margin: 0.4rem 0 0;
+}
 
 .site-footer {
   margin-top: 3rem;
@@ -247,4 +446,58 @@ hr {
   color: var(--muted);
   font-size: 0.85rem;
   text-align: center;
+}
+
+/* Footnote hover tooltips (markup injected by footnote-tooltip.js) */
+.has-footnote-tooltip {
+  position: relative;
+}
+
+.footnote-tooltip {
+  display: none;
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 0.4rem;
+  width: max-content;
+  max-width: 18rem;
+  padding: 0.5rem 0.65rem;
+  background: var(--text);
+  color: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  /* The tooltip hangs off a <sup>, so reset the inherited superscript type. */
+  font-size: 0.85rem;
+  font-weight: normal;
+  line-height: 1.4;
+  vertical-align: baseline;
+  text-align: left;
+  white-space: normal;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
+}
+
+.has-footnote-tooltip:hover>.footnote-tooltip,
+.has-footnote-tooltip:focus-within>.footnote-tooltip {
+  display: block;
+}
+
+.footnote-tooltip-p {
+  display: block;
+}
+
+.footnote-tooltip-p+.footnote-tooltip-p {
+  margin-top: 0.5rem;
+}
+
+/* Inverted panel: links and code have to follow the tooltip's colors. */
+.footnote-tooltip a {
+  color: inherit;
+}
+
+.footnote-tooltip code {
+  background: none;
+  color: inherit;
 }

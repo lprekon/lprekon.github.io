@@ -64,7 +64,11 @@ jobs:
             texlive-science \
             texlive-pictures \
             dvipng \
-            cm-super
+            cm-super \
+            dvisgm \
+            libcairo2-dev \
+            libpango1.0-dev \
+            ffmpeg
 
           # Verify LaTeX installation
           latex --version
@@ -73,12 +77,11 @@ jobs:
         with:
           python-version: "3.x"
       - name: Install base python dependencies
-        run: python -m pip install --upgrade pip && pip install jupyter matplotlib numpy
+        run: python -m pip install --upgrade pip && pip install -r requirements.txt
       - name: Iterate and Execute Notebooks
         run: |
           for NOTEBOOK_PATH in $(find . -name "*.ipynb" -type f); do
-            cd $(dirname $NOTEBOOK_PATH)
-            jupyter nbconvert --to notebook --execute --inplace $(basename $NOTEBOOK_PATH)
+            ( cd $(dirname $NOTEBOOK_PATH && jupyter nbconvert --to notebook --execute --inplace $(basename $NOTEBOOK_PATH) )
           done
 
       - name: Install Node.js dependencies

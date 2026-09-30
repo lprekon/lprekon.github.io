@@ -1,0 +1,20 @@
+{{- $src := .Get "src" -}}
+{{- $alt := .Get "alt" | default "" -}}
+{{- $caption := .Get "caption" -}}
+{{- $ext := path.Ext $src | lower -}}
+{{- $isVideo := in (slice ".mp4" ".webm" ".ogv" ".mov") $ext -}}
+{{- $themed := eq (.Get "themed") "true" -}}
+<figure>
+  {{- if $isVideo }}
+  <video src="{{ $src | safeURL }}" autoplay loop muted playsinline controls></video>
+  {{- else if $themed }}
+  {{- $stem := printf "%s/%s" (path.Dir $src) (path.BaseName $src) -}}
+  <img class="zoomable themed-light" src="{{ printf "%s-light%s" $stem (path.Ext $src) | safeURL }}" alt="{{ $alt }}" loading="lazy">
+  <img class="zoomable themed-dark" src="{{ printf "%s-dark%s" $stem (path.Ext $src) | safeURL }}" alt="{{ $alt }}" loading="lazy">
+  {{- else }}
+  <img class="zoomable" src="{{ $src | safeURL }}" alt="{{ $alt }}" loading="lazy">
+  {{- end }}
+  {{- with $caption }}
+  <figcaption class="media-caption">{{ . | markdownify }}</figcaption>
+  {{- end }}
+</figure>

@@ -1,0 +1,20 @@
+{{- /*
+  Render one nested level of the table of contents.
+
+  @param {page.Fragments.Headings} . A slice of headings.
+*/ -}}
+{{- $items := . -}}
+{{- /* Hugo wraps the headings in a synthetic, anchorless root when the page's
+       top heading is below h1; unwrap it so we don't emit an empty link. */ -}}
+{{- if and (eq (len $items) 1) (not (index $items 0).ID) -}}
+  {{- $items = (index $items 0).Headings -}}
+{{- end -}}
+{{- with $items -}}
+  <ul>
+    {{- range . }}
+    <li><a href="#{{ .ID }}">{{ partial "math-text.html" .Title }}</a>
+      {{- with .Headings }}{{ partial "toc-list.html" . }}{{ end -}}
+    </li>
+    {{- end }}
+  </ul>
+{{- end -}}
