@@ -73,7 +73,7 @@ jobs:
         with:
           python-version: "3.x"
       - name: Install base python dependencies
-        run: python -m pip install --upgrade pip && pip install jupyter matplotlib numpy
+        run: python -m pip install --upgrade pip && pip install -r requirements.txt
       - name: Iterate and Execute Notebooks
         run: |
           for NOTEBOOK_PATH in $(find . -name "*.ipynb" -type f); do
