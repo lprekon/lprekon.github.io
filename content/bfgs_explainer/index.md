@@ -82,7 +82,7 @@ $$
 
 So, starting from evaluating $f$ at some point $x_0$, the minimum of $f$ is at $x_{\min} = x_0 + s$, where $s$ is our step size of $-\frac{f'(x_0)}{f''(x_0)}$. In other words $\operatorname{argmin}_x f(x) = x_0 - \frac{f'(x_0)}{f''(x_0)}$.
 
-Let's generalize this to functions of multiple variables. $f'(x)$ becomes the [Jacobian](https://en.wikipedia.org/wiki/Jacobian_matrix_and_determinant) $\nabla f$, a vector of partial first derivatives. $f''(x)$ becomes the [Hessian](https://en.wikipedia.org/wiki/Hessian_matrix) $B$, a matrix of partial second derivatives.
+Let's generalize this to functions of multiple variables. $f'(x)$ becomes the $\nabla f$, a vector of partial first derivatives. $f''(x)$ becomes the [Hessian](https://en.wikipedia.org/wiki/Hessian_matrix) $B$, a matrix of partial second derivatives.
 
 Starting with our definitions
 <div class="math">
@@ -119,11 +119,11 @@ $$
 
 </div>
 
-And this brings us to the major problem with Newtonian optimization: that pesky $B^{-1}$. Gradient descent determines each step with only the Jacobian $\nabla f$, which scales linearly with the number of inputs. But the Hessian $B$ grows quadratically with the number of inputs[^3]. Finding the Hessian for a function of one million variables (not very large by modern machine learning standards) would require calculating five-hundred-trillion unique partial second derivatives every step. The Hessian *then* needs to be inverted on each step, and inverting an $n \times n$ matrix is an $O(n^3)$ operation[^4].
+And this brings us to the major problem with Newtonian optimization: that pesky $B^{-1}$. Gradient descent determines each step with only $\nabla f$, which scales linearly with the number of inputs. But the Hessian $B$ grows quadratically with the number of inputs[^3]. Finding the Hessian for a function of one million variables (not very large by modern machine learning standards) would require calculating five-hundred-billion unique partial second derivatives every step. The Hessian *then* needs to be inverted on each step, and inverting an $n \times n$ matrix is an $O(n^3)$ operation[^4].
 
 [^3]: The Hessian [must be symmetric](https://en.wikipedia.org/wiki/Symmetry_of_second_derivatives), meaning the Hessian for a function of $n$ inputs has $\frac{n(n+1)}{2} $ unique elements, instead of $n^2$.
 
-[^4]: A one-million-by-one-million square matrix takes $10\times10 ^{18}$ operations to invert. On a CPU running three billion operations per second, simply inverting the Hessian a single time would take about ten and a half years.
+[^4]: A one-million-by-one-million square matrix takes $10\times10 ^{17}$ operations to invert. On a CPU running three billion operations per second, simply inverting the Hessian a single time would take about ten and a half years.
 
 As amazing as Newtonian optimization is, the computation required grows cubically with the number of parameters. It is therefore impractical for all but the smallest problems.
 
@@ -172,7 +172,7 @@ $$
 
 </div>
 
-Where $c_1$ and $c_2$ are arbitrary positive constants, usually chosen as $10^{-4}$ and $0.9$ respectively. These two conditions place an upper and lower bound on $\alpha _k$.
+Where $c_1$ and $c_2$ are arbitrary constants between $0$ and $1$, usually chosen as $10^{-4}$ and $0.9$ respectively. These two conditions place an upper and lower bound on $\alpha _k$.
 
 The first condition stops us from picking an overly large $\alpha _k$ and seriously overshooting the minimum. Think of the right side of the inequality as a bar that starts at $f(x_k)$ when $\alpha = 0$. As our theoretical step size (and thus candidate choice of $\alpha _k$) increases, that bar drops. The further we step, the greater requirement we have for the decrease of $f$. Eventually, as we continue to increase $\alpha$, $f(x_k + \alpha p_k)$ will go past the function minimum and will pop up above the ever-decreasing horizontal bar, breaking the inequality and giving us our absolute maximum $\alpha_k$. This inequality doesn't completely stop us from overshooting the minimum, but it does put a cap on how far we can go. It can be a little hard to picture, so here's how it works in practice
 
@@ -336,7 +336,7 @@ $$
 
 </div>
 
-(Note that $G$ is paired with $s$ where $H$ was paired with $y$. $G$ is the theoretical true Hessian, not the inverse Hessian like $H$)
+(Note that $G$ is paired with $s$ where $H$ was paired with $y$. $G$ is the hypothetical average Hessian, not the inverse Hessian like $H$)
 
 Using this relationship between $y_k$, $s_k$, and our chosen weight matrix, we redefine $\hat{y}$
 
