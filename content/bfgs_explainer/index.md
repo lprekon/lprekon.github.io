@@ -43,7 +43,7 @@ Here's a visual representation of how that works in practice, alongside the more
 
 {{< media src="media/videos/bfgs_explainer/1080p60/GradientVsNewtonian.mp4" caption="$f(x) = (1-x_0)^2 + 50(x_1-x_0^2)^2$" >}}
 
-Using gradient descent to find the minimum requires walking down the canyon walls - initially moving *away* from the minimum - before tracing a path along the valley floor. In this demonstration, after 12,000 steps of radient descent we're still only approaching the minimum, while Newtonian optimization gets to the minimum in only 5 steps.
+Using gradient descent to find the minimum requires walking down the canyon walls - initially moving *away* from the minimum - before tracing a path along the valley floor. In this demonstration, after 12,000 steps of gradient descent we're still only approaching the minimum, while Newtonian optimization gets to the minimum in only 5 steps.
 
 Despite this incredible feat, pure Newtonian optimization has a couple of drawbacks, which is why it's almost never used in practice. The first is its sensitivity to the curvature of the function to be minimized. If the function is not well approximated by a quadratic curve, then we can get quite suboptimal results.
 
@@ -82,7 +82,7 @@ $$
 
 So, starting from evaluating $f$ at some point $x_0$, the minimum of $f$ is at $x_{\min} = x_0 + s$, where $s$ is our step size of $-\frac{f'(x_0)}{f''(x_0)}$. In other words $\operatorname{argmin}_x f(x) = x_0 - \frac{f'(x_0)}{f''(x_0)}$ (assuming curvature greater than 0).
 
-Let's generalize this to functions of multiple variables. $f'(x)$ becomes the $\nabla f$, a vector of partial first derivatives. $f''(x)$ becomes the [Hessian](https://en.wikipedia.org/wiki/Hessian_matrix) $B$, a matrix of partial second derivatives.
+Let's generalize this to functions of multiple variables. $f'(x)$ becomes $\nabla f$, a vector of partial first derivatives. $f''(x)$ becomes the [Hessian](https://en.wikipedia.org/wiki/Hessian_matrix) $B$, a matrix of partial second derivatives.
 
 Starting with our definitions
 <div class="math">
@@ -239,7 +239,7 @@ $$
 
 </div>
 
-However the Frobenius norm is sensitive to the elements of our input $x$ being measured in different magnitudes; If say, $x_0$ was in meters but $x_1$ was in centimeters, a Frobenius norm might over-index on keeping the higher absolute value elements similar at the expense of other elements. So rather than a Frobenius norm, we'll use a weighted Frobenius norm.
+However the Frobenius norm is sensitive to the elements of our input $x$ being measured in different magnitudes; if say, $x_0$ was in meters but $x_1$ was in centimeters, a Frobenius norm might over-index on keeping the higher absolute value elements similar at the expense of other elements. So rather than a Frobenius norm, we'll use a weighted Frobenius norm.
 
 Let $W$ be a matrix of weights. Then the weighted Frobenius norm is
 
@@ -626,7 +626,7 @@ We have shown the full BFGS algorithm. We have shown how one may derive the BFGS
 
 We start by comparing how the choice of $\hat{Q}$ over $I$ affects the norm of the difference between $H_{k+1}$ and $H_k$. The difference between $\hat{Q}$ and $I$'s respective effects on the norm is easiest to see if we conduct a [change-of-basis](https://en.wikipedia.org/wiki/Change_of_basis)[^14] to a new basis. Let $\mathcal J$ be our new basis with orthonormal basis $\{j_1, j_2, \ldots, j_n\}$. We define $j_1 = \frac{\hat{y}}{\lVert\hat{y}\rVert}$, and $\{j_2, \cdots , j_n\}$ as orthonormal vectors spanning the remainder of $\mathcal J$.
 
-[^14]: In this article I'm using the notation from *Linear Algebra And It's Applications, 4th ed, by David C. Lay*, which is the inverse of Wikipedia's notation. In discussing changing the basis of a vector $x$ from an old basis to a new basis, Wikipedia uses the term "change-of-basis" matrix to refer to a matrix $A$ s.t $x_{old} = Ax_{new}$. Under the notation regime used in this article, the matrix described by Wikipedia would be called the change-of-coordinate matrix, and the change-of-basis matrix would be $B$ s.t $Bx_{old} = x_{new}$. Note that $B = A^{-1}$.
+[^14]: In this article I'm using the notation from *Linear Algebra And Its Applications, 4th ed, by David C. Lay*, which is the inverse of Wikipedia's notation. In discussing changing the basis of a vector $x$ from an old basis to a new basis, Wikipedia uses the term "change-of-basis" matrix to refer to a matrix $A$ s.t $x_{old} = Ax_{new}$. Under the notation regime used in this article, the matrix described by Wikipedia would be called the change-of-coordinate matrix, and the change-of-basis matrix would be $B$ s.t $Bx_{old} = x_{new}$. Note that $B = A^{-1}$.
 
 Since $\hat{H}_k$ is symmetric, we can define it in our new basis in the general form:
 
@@ -711,7 +711,7 @@ $$
 
 </div>
 
-Now remember that we defined $J$ as having the a first column $j_1 = \frac{\hat{y}}{\lVert\hat{y}\rVert}$, and the remaining columns $\{j_2, \dotsc, j_n\}$ as orthogonal to the first column, which means they're orthogonal to $\hat{y}$.
+Now remember that we defined $J$ as having a first column $j_1 = \frac{\hat{y}}{\lVert\hat{y}\rVert}$, and the remaining columns $\{j_2, \dotsc, j_n\}$ as orthogonal to the first column, which means they're orthogonal to $\hat{y}$.
 
 <div class="math">
 
@@ -896,7 +896,7 @@ $$
 
 </div>
 
-The norm of the difference between our first consturction and $\hat{H}_{k}$ is
+The norm of the difference between our first construction and $\hat{H}_{k}$ is
 
 
 <div class="math">
@@ -1045,12 +1045,12 @@ $$
 \begin{array}{lr}
 \limsup _{k\rightarrow \infty} \frac{\lVert x_{k+1} - x^*\rVert}{\lVert x_k - x^*\rVert} = c ,& c \in (0, 1) \\
  \text{i.e} & \\
- \lVert x_{k+1} - x^* \leq c \lVert x_k - x^* \rVert ,& c \in (0, 1)
+ \lVert x_{k+1} - x^* \rVert \leq c \lVert x_k - x^* \rVert ,& c \in (0, 1)
 \end{array}
 $$
 
 </div>
 
-The ratio of the distance to the minimum on successive steps has an upper bound of $c$ between $0$ and $1$, but never always greater than zero; each step gets us only a fixed portion of the remaining distance, no matter how many steps we take.
+The ratio of the distance to the minimum on successive steps has an upper bound of $c$ between $0$ and $1$, but always greater than zero; each step gets us only a fixed portion of the remaining distance, no matter how many steps we take.
 
 Second order algorithms like BFGS are king when it comes to optimizations close to the function minimum. Hm... maybe one could start training with a cheap first order algorithm, and then switch to a more computationally expensive second order algorithm for fine tuning? But that - and a full explanation of BFGS's successor, L-BFGS - will be discussions for another day!
