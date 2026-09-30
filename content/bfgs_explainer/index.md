@@ -1043,9 +1043,7 @@ Where $x^*$ is the true function minimum. Contrast this with simple gradient des
 $$
 \def\arraystretch{1.5}
 \begin{array}{lr}
-\limsup _{k\rightarrow \infty} \frac{\lVert x_{k+1} - x^*\rVert}{\lVert x_k - x^*\rVert} = c ,& c \in (0, 1) \\
- \text{i.e} & \\
- \lVert x_{k+1} - x^* \rVert \leq c \lVert x_k - x^* \rVert ,& c \in (0, 1)
+\limsup _{k\rightarrow \infty} \frac{\lVert x_{k+1} - x^*\rVert}{\lVert x_k - x^*\rVert} = c ,& c \in (0, 1) 
 \end{array}
 $$
 
