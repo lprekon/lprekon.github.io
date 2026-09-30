@@ -1016,7 +1016,7 @@ How does BFGS do at our Rosenbrock canyon?
 
 It certainly appears to take more steps than Newtonian optimization. One might wonder "if BFGS is learning the inverse Hessian, and updating that approximation with more and more information at each step, why does it crawl down the canyon, taking little steps each time? Why doesn't it eventually learn and take bigger steps?"
 
-The answer is that this function has no single true Hessian, and thus no single inverse Hessian. As we walk along the canyon floor the approximate inverse Hessian is continuously being updated, but the true Hessian is also changing as we go, preventing us from ever learning "it" (because there is no single "it"), capping our step size.
+The answer is that this function has no single true Hessian, and thus no single inverse Hessian. As we walk along the canyon floor the approximate inverse Hessian is continuously being updated, but the true Hessian is also changing as we go, preventing us from ever learning "it" (because there is no single "it"). This effectively caps our step size, since we're constantly "readjusting".
 
 Before one writes this exercise off and dismisses BFGS because it doesn't go any faster than gradient descent seemed to, it's worth noting that these animations are not perfectly to time-scale. When we watched gradient descent roll down the Rosenbrock canyon or roll into the sinusoid valley, we saw it move at constant speed; in reality, the first several steps are relatively large, and the vast majority of steps - the vast majority of iterations of that algorithm - occur right at the end. Take a look at this graph of training loss over amount of data trained on from [the LLaMA paper](https://arxiv.org/abs/2302.13971)
 
