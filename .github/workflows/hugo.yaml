@@ -65,7 +65,7 @@ jobs:
             texlive-pictures \
             dvipng \
             cm-super \
-            dvisgm \
+            dvisvgm \
             libcairo2-dev \
             libpango1.0-dev \
             ffmpeg
