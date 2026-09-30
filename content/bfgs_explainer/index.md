@@ -11,7 +11,7 @@ Gradient descent is a first order minimization algorithm - it relies on the firs
 
 There also exist second order algorithms, which incorporate curvature information - the second derivative of the loss function - to accelerate the search. The most straightforward second order algorithm is Newtonian Optimization. There are also a whole host of quasi-Newtonian algorithms which approximate Newtonian optimization, seeking similar performance at a fraction of the computational cost.
 
-Today we're going to talk about a particular quasi-Newtonian algorithm called BFGS, named for the four mathematicians who invented it.
+Today we're going to talk about a particular quasi-Newtonian algorithm called BFGS, named for the four mathematicians who invented it (independently at the same time).
 
 While there are [plenty](https://en.wikipedia.org/wiki/Broyden–Fletcher–Goldfarb–Shanno_algorithm#Algorithm) of [places](https://machinelearningmastery.com/bfgs-optimization-in-python/) on [the internet](https://www.cs.purdue.edu/homes/jhonorio/16spring-cs52000-quasinewton.pdf) that will tell you *about* the BFGS algorithm, none (in my opinion) do an adequate job explaining where it comes from. The algorithm involves some fairly arcane-looking linear algebra, and it is not immediately clear how that math achieves its stated purpose. Why and how does this algorithm actually *work*?
 
