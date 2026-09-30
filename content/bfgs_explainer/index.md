@@ -1029,7 +1029,7 @@ The closer you get to a function minimum, the less the overall noise and general
 <div class="math">
 
 $$
-\lim _{k\rightarrow \infty} \frac{x_{k+1} - x^*}{x_k - x^*} = 0
+\lim _{k\rightarrow \infty} \frac{\lVert x_{k+1} - x^*\rVert}{\lVert x_k - x^* \rVert} = 0
 $$
 
 </div>
@@ -1039,13 +1039,16 @@ Where $x^*$ is the true function minimum. Contrast this with simple gradient des
 <div class="math">
 
 $$
+\def\arraystretch{1.5}
 \begin{array}{lr}
-\lim _{k\rightarrow \infty} \frac{x_{k+1} - x^*}{x_k - x^*} = c ,& c \in (0, 1)
+\limsup _{k\rightarrow \infty} \frac{\lVert x_{k+1} - x^*\rVert}{\lVert x_k - x^*\rVert} = c ,& c \in (0, 1) \\
+ \text{i.e} & \\
+ \lVert x_{k+1} - x^* \leq c \lVert x_k - x^* \rVert ,& c \in (0, 1)
 \end{array}
 $$
 
 </div>
 
-The ratio of the distance to the minimum on successive steps converges to some constant $c$ between $0$ and $1$, but never all the way to zero; each step gets us only a fixed portion of the remaining distance, no matter how many steps we take.
+The ratio of the distance to the minimum on successive steps has an upper bound of $c$ between $0$ and $1$, but never always greater than zero; each step gets us only a fixed portion of the remaining distance, no matter how many steps we take.
 
 Second order algorithms like BFGS are king when it comes to optimizations close to the function minimum. Hm... maybe one could start training with a cheap first order algorithm, and then switch to a more computationally expensive second order algorithm for fine tuning? But that - and a full explanation of BFGS's successor, L-BFGS - will be discussions for another day!
