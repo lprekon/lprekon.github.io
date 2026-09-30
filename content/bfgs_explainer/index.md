@@ -1,6 +1,6 @@
 +++
 date = '2026-06-27T15:00:00-05:00'
-draft = true
+draft = false
 title = 'BFGS Explained'
 summary = "An intuitive walkthrough and proof of the BFGS optimization algorithm"  
 +++
