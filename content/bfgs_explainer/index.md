@@ -57,7 +57,7 @@ In order to derive the algorithm for Newtonian optimization, we start by approxi
 
 <div class="math">
 
-$f(x_0 + s) = f(x_0) + f'(x_0) * s + \frac{1}{2}f''(x_0) * s^2$
+$f(x_0 + s) \approxeq f(x_0) + f'(x_0) * s + \frac{1}{2}f''(x_0) * s^2$
 
 </div>
 
@@ -71,16 +71,16 @@ Where $x_0$ is a point at which we've evaluated $f$ and $s$ is a proposed step. 
 
 $$
 \def\arraystretch{2}
-\begin{array}{l}
+\begin{array}{lr}
 0 = \frac{d}{ds} [ f(x_0) + f'(x_0)*s + \frac{1}{2}f''(x_0)*s^2 ] \\
 0 = f'(x_0) + f''(x_0) * s \\
-s = - \frac{f'(x_0)}{f''(x_0)} \\
+s = - \frac{f'(x_0)}{f''(x_0)}, & f'' > 0\\
 \end{array}
 $$
 
 </div>
 
-So, starting from evaluating $f$ at some point $x_0$, the minimum of $f$ is at $x_{\min} = x_0 + s$, where $s$ is our step size of $-\frac{f'(x_0)}{f''(x_0)}$. In other words $\operatorname{argmin}_x f(x) = x_0 - \frac{f'(x_0)}{f''(x_0)}$.
+So, starting from evaluating $f$ at some point $x_0$, the minimum of $f$ is at $x_{\min} = x_0 + s$, where $s$ is our step size of $-\frac{f'(x_0)}{f''(x_0)}$. In other words $\operatorname{argmin}_x f(x) = x_0 - \frac{f'(x_0)}{f''(x_0)}$ (assuming curvature greater than 0).
 
 Let's generalize this to functions of multiple variables. $f'(x)$ becomes the $\nabla f$, a vector of partial first derivatives. $f''(x)$ becomes the [Hessian](https://en.wikipedia.org/wiki/Hessian_matrix) $B$, a matrix of partial second derivatives.
 
