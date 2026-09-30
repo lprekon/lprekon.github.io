@@ -17,12 +17,12 @@ While there are [plenty](https://en.wikipedia.org/wiki/Broyden–Fletcher–Gold
 
 This article will explain the intuition behind second order optimization, present the BFGS algorithm, and then provide a derivation of and proof for the algorithm, showing that it is in fact optimal (given certain assumptions). A later article will continue the discussion to L-BFGS, a successor algorithm built on BFGS and which is more common in practice today.
 
-Note: this article assumes familiarity with linear algebra concepts like matrix multiplication, transposition, and symmetry.
+Note: this article assumes familiarity with linear algebra concepts like matrix multiplication, transposition, and symmetry. Some other concepts - like projections and change-of-basis - are included with brief explanations
 
 ## Primer: Newtonian optimization
 
 Newtonian optimization rests on two ideas: 
-1) At any minimum of a function, the function's derivative at that point must be zero. This should be obvious - if the derivative were not 0, then there exists a direction in which we can move and find a smaller function value.
+1) At any minimum of a function, the function's derivative at that point must be zero. This should be obvious - if the derivative were not 0, then there would exist a direction in which we can move and find a smaller function value.
 2) The function to minimize is quadratic - i.e. it is twice-differentiable and has a constant second derivative[^1].
 
 
@@ -603,7 +603,7 @@ $$
 
 This works out just like 4.4.7, but since the sides of the $W^{\frac{1}{2}}$ and $W^{-\frac{1}{2}}$ switched, we switched which $\hat{y}$ turned into $s_k$ and which $\hat{y}$ turned into $y_k$.
 
-This means the update formula that gives a new estimated inverse Hessian, incorporating the new curvature information while staying as close to the old estimate as possible is
+This means the update formula that gives a new estimated inverse Hessian, incorporating the new curvature information while staying as close to the old estimate as possible, is
 
 <div class="math">
 
@@ -624,7 +624,7 @@ We have shown the full BFGS algorithm. We have shown how one may derive the BFGS
 
 [^13]: Recall that here, "best" means the smallest weighted Frobenius norm of $H_{k+1} - H_k$, which is equivalent to the smallest un-weighted Frobenius norm of $\hat{H}_{k+1} - \hat{H}_k$.
 
-We start by comparing how the choice of $\hat{Q}$ over $I$ affects the norm of the difference between $H_{k+1}$ and $H_k$. The difference between $\hat{Q}$ and $I$'s respective effects on the norm is easiest to see if we conduct a [change-of-basis](https://en.wikipedia.org/wiki/Change_of_basis)[^14] to a new basis. Let $\mathcal J$ be our new basis with orthonormal basis $\{j_1, j_2, \ldots, j_n\}$. We define $j_1 = \frac{\hat{y}}{\lVert\hat{y}\rVert}$, and $\{j_2, \cdots , j_n\}$ as orthonormal vectors spanning the remainder of $\mathcal J$.
+We start by comparing how the choice of $\hat{Q}$ over $I$ affects the norm of the difference between $H_{k+1}$ and $H_k$. The difference between $\hat{Q}$'s and $I$'s respective effects on the norm is easiest to see if we conduct a [change-of-basis](https://en.wikipedia.org/wiki/Change_of_basis)[^14] to a new basis. Let $\mathcal J$ be our new basis with orthonormal basis $\{j_1, j_2, \ldots, j_n\}$. We define $j_1 = \frac{\hat{y}}{\lVert\hat{y}\rVert}$, and $\{j_2, \cdots , j_n\}$ as orthonormal vectors spanning the remainder of $\mathcal J$.
 
 [^14]: In this article I'm using the notation from *Linear Algebra And Its Applications, 4th ed, by David C. Lay*, which is the inverse of Wikipedia's notation. In discussing changing the basis of a vector $x$ from an old basis to a new basis, Wikipedia uses the term "change-of-basis" matrix to refer to a matrix $A$ s.t $x_{old} = Ax_{new}$. Under the notation regime used in this article, the matrix described by Wikipedia would be called the change-of-coordinate matrix, and the change-of-basis matrix would be $B$ s.t $Bx_{old} = x_{new}$. Note that $B = A^{-1}$.
 
