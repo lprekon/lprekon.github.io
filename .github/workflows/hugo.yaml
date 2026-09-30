@@ -81,7 +81,10 @@ jobs:
       - name: Iterate and Execute Notebooks
         run: |
           for NOTEBOOK_PATH in $(find . -name "*.ipynb" -type f); do
-            ( cd $(dirname $NOTEBOOK_PATH && jupyter nbconvert --to notebook --execute --inplace $(basename $NOTEBOOK_PATH) )
+            working_dir=$(pwd)
+            cd $(dirname $NOTEBOOK_PATH)
+            jupyter nbconvert --to notebook --execute --inplace $(basename $NOTEBOOK_PATH)
+            cd $working_dir
           done
 
       - name: Install Node.js dependencies
