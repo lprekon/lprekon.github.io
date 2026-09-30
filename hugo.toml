@@ -11,6 +11,21 @@ enable = true
 inline = [['\(', '\)'], ['$', '$']]
 block  = [['\[', '\]'], ['$$', '$$']]
 
+# Re-declares the default content mount (content -> content) so we can attach
+# excludeFiles. Manim writes its scratch trees inside the post's page bundle, and
+# Hugo would otherwise publish all of it as bundle resources. Referenced videos
+# under media/videos/<scene>/1080p60/ are kept, so no URLs change.
+[[module.mounts]]
+source = 'content'
+target = 'content'
+excludeFiles = [
+  '**/media/Tex/**',           # latex -> dvi -> svg intermediates
+  '**/media/texts/**',         # rendered text svgs
+  '**/media/jupyter/**',       # timestamped dupes from the %%manim magic
+  '**/partial_movie_files/**', # per-animation mp4 fragments
+  '**/480p15/**',              # stale low_quality renders
+]
+
 [params]
 description = "write-ups on systems and performance engineering, machine learning, and anything else worth spilling ink over."
 color = '#4a6b3d'
