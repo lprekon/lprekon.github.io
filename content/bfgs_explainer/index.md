@@ -43,7 +43,7 @@ Here's a visual representation of how that works in practice, alongside the more
 
 {{< media src="media/videos/bfgs_explainer/1080p60/GradientVsNewtonian.mp4" caption="$f(x) = (1-x_0)^2 + 50(x_1-x_0^2)^2$" >}}
 
-Using gradient descent to find the minimum requires walking down the canyon walls - initially moving *away* from the minimum - before tracing a path along the valley floor. In this demonstration, after 12,000 steps of radient descent we're still only approaching the minimum, while Newtonian optimization gets to the minimum exactly in only 5 steps.
+Using gradient descent to find the minimum requires walking down the canyon walls - initially moving *away* from the minimum - before tracing a path along the valley floor. In this demonstration, after 12,000 steps of radient descent we're still only approaching the minimum, while Newtonian optimization gets to the minimum in only 5 steps.
 
 Despite this incredible feat, pure Newtonian optimization has a couple of drawbacks, which is why it's almost never used in practice. The first is its sensitivity to the curvature of the function to be minimized. If the function is not well approximated by a quadratic curve, then we can get quite suboptimal results.
 
@@ -1034,7 +1034,9 @@ $$
 
 </div>
 
-Where $x^*$ is the true function minimum. Contrast this with simple gradient descent, which converges linearly
+Where $x^*$ is the true function minimum. Contrast this with simple gradient descent, which converges linearly in the best case[^17]
+
+[^17]: True linear convergence of gradient descent requires [certain conditions](https://en.wikipedia.org/wiki/Gradient_descent#Theoretical_properties)
 
 <div class="math">
 
