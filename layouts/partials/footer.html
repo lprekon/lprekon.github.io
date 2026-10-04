@@ -1,3 +1,10 @@
+{{ $holder := site.Params.author | default site.Title }}
+{{ $start := int (site.Params.copyrightYear | default now.Year) }}
+{{ $years := cond (ge $start now.Year) (printf "%d" now.Year) (printf "%d–%d" $start now.Year) }}
 <footer class="site-footer">
-  <p>&copy; {{ now.Year }} {{ site.Title }}</p>
+  <p class="footer-copyright">
+    &copy; {{ $years }} {{ $holder }}
+    <span class="footer-sep" aria-hidden="true">·</span>
+    <span class="footer-rights">All rights reserved</span>
+  </p>
 </footer>

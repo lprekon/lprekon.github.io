@@ -1,8 +1,12 @@
 {{ define "main" }}
   <article>
     <h1 class="page-title">{{ .Title }}</h1>
-    {{ if not .Date.IsZero }}
-      <p class="page-meta"><time datetime="{{ .Date.Format "2006-01-02" }}">{{ .Date.Format "January 2, 2006" }}</time></p>
+    {{ $author := .Params.author | default site.Params.author }}
+    {{ if or $author (not .Date.IsZero) }}
+      <p class="page-meta">
+        {{ with $author }}<span class="byline">{{ . }}</span>{{ end }}
+        {{ if not .Date.IsZero }}<time datetime="{{ .Date.Format "2006-01-02" }}">{{ .Date.Format "January 2, 2006" }}</time>{{ end }}
+      </p>
     {{ end }}
     {{ if and (.Params.toc | default true) .Fragments.Headings }}
       <nav class="toc" aria-label="Table of contents">
