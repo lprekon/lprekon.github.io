@@ -1,5 +1,5 @@
 +++
-date = '2026-9-29T15:00:00-05:00'
+date = '2026-09-29T15:00:00-05:00'
 draft = false
 title = 'BFGS Explained'
 summary = "An intuitive walkthrough and proof of the BFGS optimization algorithm"  
