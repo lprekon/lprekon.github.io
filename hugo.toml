@@ -29,6 +29,11 @@ excludeFiles = [
 [params]
 description = "write-ups on systems and performance engineering, machine learning, and anything else worth spilling ink over."
 color = '#4a6b3d'
+# Default post byline + footer copyright holder. Override per post with
+# `author = '...'` in front matter; `author = ''` drops the byline entirely.
+author = 'John Farmer'
+# First year the site published anything; the footer renders a range to now.
+copyrightYear = 2025
 
 # Top navigation. Add entries as real pages appear:
 #

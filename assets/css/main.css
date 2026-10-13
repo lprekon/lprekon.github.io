@@ -200,9 +200,24 @@ h6 {
 }
 
 .page-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2rem 0.6rem;
   color: var(--muted);
   font-size: 0.9rem;
   margin-bottom: 2rem;
+}
+
+/* Dot between byline and date, only when both are present. */
+.page-meta > * + *::before {
+  content: "·";
+  margin-right: 0.6rem;
+}
+
+.page-meta .byline {
+  font-weight: 600;
+  color: var(--text);
 }
 
 .toc {
@@ -446,6 +461,15 @@ hr {
   color: var(--muted);
   font-size: 0.85rem;
   text-align: center;
+}
+
+.site-footer p {
+  margin: 0;
+}
+
+.site-footer .footer-sep {
+  margin: 0 0.35rem;
+  color: var(--border);
 }
 
 /* Footnote hover tooltips (markup injected by footnote-tooltip.js) */
